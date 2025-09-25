@@ -1,0 +1,523 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+<title>Word Search + Unscramble</title>
+<style>
+  :root{ --fg:#e9eef4; --bg:#0f1011; --chip:rgba(20,20,22,.72); --sab:env(safe-area-inset-bottom,0px);
+         --ok:#87f59f; --bad:#ff6b6b; --accent:#7aa7ff; }
+  html,body{margin:0;height:100%;background:var(--bg);color:var(--fg);
+    font-family:system-ui,-apple-system,Segoe UI,Roboto,Inter,Helvetica,Arial,sans-serif;}
+  #wrap{position:fixed;inset:0;display:flex;flex-direction:column;}
+  header{position:fixed;left:0;right:0;top:0;display:flex;gap:.5rem .6rem;flex-wrap:wrap;
+    align-items:center;padding:.55rem .7rem;z-index:30;pointer-events:none}
+  .chip{pointer-events:auto;background:var(--chip);border:1px solid rgba(255,255,255,.12);
+    backdrop-filter: blur(8px); border-radius:14px; padding:.35rem .6rem;
+    display:flex; gap:.45rem; align-items:center; font-weight:700; white-space:nowrap}
+  .btn{cursor:pointer}
+  .pill{border-radius:999px; padding:.35rem .75rem}
+
+  /* Top region (grid / unscramble swap) */
+  #top{position:fixed; left:0; right:0; z-index:10}
+  #gridWrap{display:flex; align-items:center; justify-content:center;}
+  #grid{position:relative; display:grid; gap:.55rem; touch-action:none}
+  .cell{width:56px;height:56px;background:#e8eef5;color:#0e1116;border-radius:12px;
+    box-shadow: inset 0 -2px 0 rgba(0,0,0,.12);
+    display:flex;align-items:center;justify-content:center;
+    font-weight:800;font-size:1.35rem; letter-spacing:.02em; position:relative}
+  .cell.sel{outline:3px solid #5fb5ff; outline-offset:2px; background:#f5f9ff}
+  .cell.found{background:#d7ffe4}
+  .cell.hint{ outline:3px dashed #49e68b; animation: hintPulse 1.1s ease-in-out 2; }
+  @keyframes hintPulse{0%{outline-offset:0;opacity:.9}50%{outline-offset:4px;opacity:1}100%{outline-offset:0;opacity:.9}}
+
+  /* Word list */
+  #bottom{position:fixed; left:0; right:0; bottom:0; z-index:20;
+    padding:.6rem .7rem calc(.6rem + var(--sab));
+    background:linear-gradient(to top, rgba(10,10,12,.95), rgba(10,10,12,.7) 50%, transparent)}
+  #words{display:grid; grid-template-columns:repeat(2, minmax(140px,1fr)); gap:.4rem .6rem}
+  .w{background:#1c222b;border:1px solid rgba(255,255,255,.12); border-radius:.7rem;
+     padding:.42rem .6rem; font-weight:800; letter-spacing:.06em; display:flex; gap:.4rem; align-items:center}
+  .w.done{opacity:.45}
+  .w.allfound .circ{opacity:1; border-color:#87f59f}
+  .w.allfound span:not(.circ){opacity:.35}
+  .circ{display:inline-flex;align-items:center;justify-content:center;
+    width:1.35em;height:1.35em;border-radius:999px;border:2px solid var(--accent);font-weight:900}
+
+  /* H2H: show one target word (local test mode) */
+  .h2h #words{grid-template-columns:1fr}
+  .h2h .w{display:none}
+  .h2h .w.active{display:flex}
+
+  /* Unscramble */
+  #unsTop{display:none; height:100%; padding:.6rem .7rem;
+    display:flex; flex-direction:column; align-items:center; justify-content:center}
+  #unsSlots{display:flex; gap:.5rem; flex-wrap:wrap; margin:.6rem 0}
+  .slot{ width:2.5rem; height:3.1rem; border-radius:.5rem;
+    background:#141a21; border:2px solid rgba(255,255,255,.18);
+    display:flex; align-items:center; justify-content:center; font-weight:900; font-size:1.35rem }
+  #unsBank{display:flex; gap:.4rem; flex-wrap:wrap; }
+  .chipL{background:#273141; border:1px solid rgba(255,255,255,.18);
+    border-radius:.55rem; padding:.35rem .6rem; font-weight:900; cursor:pointer}
+  #buzzRow{display:none; gap:.5rem; margin-top:.6rem; align-items:center; flex-wrap:wrap; justify-content:center}
+  .buzz{background:#1e232a;border:1px solid rgba(255,255,255,.18); border-radius:.8rem;
+    padding:.55rem .9rem; font-weight:900; cursor:pointer}
+  .own{outline:2px solid var(--accent);}
+</style>
+</head>
+<body>
+<div id="wrap">
+  <header>
+    <div id="btnStart" class="chip btn">▶ Start</div>
+    <div id="modeChip" class="chip btn">Mode: <b id="hudMode">Solo</b></div>
+    <div id="diffChip" class="chip btn">Difficulty: <b id="hudDiff">Easy</b></div>
+    <div class="chip">Stage: <b id="hudStage">Search</b></div>
+    <div class="chip">⏱ <b id="hudTime">0</b> s</div>
+    <div class="chip pill">P1 ⭐ <b id="p1Score">0</b></div>
+    <div class="chip pill">P2 ⭐ <b id="p2Score">0</b></div>
+    <div id="hintBtn" class="chip btn" style="display:none">💡 Hint</div>
+  </header>
+
+  <div id="top">
+    <div id="gridWrap"><div id="grid" aria-label="letter grid"></div></div>
+    <div id="unsTop">
+      <div id="unsSlots"></div>
+      <div id="unsBank"></div>
+      <div id="buzzRow">
+        <button id="buzzP1" class="buzz">P1 Buzz</button>
+        <button id="buzzP2" class="buzz">P2 Buzz</button>
+        <div id="ownerMsg" style="opacity:.85"></div>
+      </div>
+      <div style="margin-top:.6rem;display:flex;gap:.5rem;flex-wrap:wrap">
+        <button id="unsClear" class="chip btn">Clear</button>
+        <button id="unsSubmit" class="chip btn">Submit</button>
+      </div>
+      <div id="unsMsg" style="margin-top:.4rem;min-height:1.2rem"></div>
+    </div>
+  </div>
+
+  <div id="bottom">
+    <div id="words"></div>
+  </div>
+</div>
+
+<script>
+/* ========= helpers ========= */
+const $ = s => document.querySelector(s);
+const hudMode=$('#hudMode'), hudDiff=$('#hudDiff'), hudStage=$('#hudStage'), hudTime=$('#hudTime');
+const p1ScoreEl=$('#p1Score'), p2ScoreEl=$('#p2Score'), gridEl=$('#grid'), wordsEl=$('#words');
+const hintBtn=$('#hintBtn');
+const buzz = pat => ('vibrate' in navigator) && navigator.vibrate(pat);
+
+/* ========= difficulty presets ========= */
+const DIFFICULTY = {
+  Easy:   { rows:10, cols:10, dirs:['H','V'], backwards:false, words:6, searchSecs:90, hintAfter:8,  unscrambleSecs:20, dummies:0, mult:0.9, showHintBtn:true },
+  Normal: { rows:12, cols:12, dirs:['H','V','D'], backwards:'few', words:6, searchSecs:75, hintAfter:12, unscrambleSecs:25, dummies:0, mult:1.0, showHintBtn:false },
+  Hard:   { rows:13, cols:13, dirs:['H','V','D'], backwards:'more',words:7, searchSecs:60, hintAfter:16, unscrambleSecs:25, dummies:1, mult:1.2, showHintBtn:false },
+  Expert: { rows:14, cols:14, dirs:['H','V','D'], backwards:true,  words:8, searchSecs:55, hintAfter:null,unscrambleSecs:30, dummies:2, mult:1.4, showHintBtn:false },
+  Zen:    { rows:12, cols:12, dirs:['H','V','D'], backwards:false, words:6, searchSecs:null, hintAfter:6,  unscrambleSecs:60, dummies:0, mult:0.6, showHintBtn:true }
+};
+/* remove timers in H2H regardless of preset */
+function timersForMode(diff, h2h){
+  return { searchSecs: h2h ? null : diff.searchSecs, unscrambleSecs: h2h ? null : diff.unscrambleSecs };
+}
+
+/* ========= sample puzzle ========= */
+const PUZZLE_BASE = {
+  words: [
+    {text:'APPLE', takeIndex:1},  // P
+    {text:'RADIO', takeIndex:3},  // I
+    {text:'SCALE', takeIndex:1},  // C
+    {text:'CANDY', takeIndex:2},  // N
+    {text:'SKIRT', takeIndex:2},  // I
+    {text:'ICING', takeIndex:1}   // C
+  ],
+  finalAnswer: 'PICNIC'
+};
+
+/* ========= state ========= */
+const S = {
+  diffName:'Easy', diff: DIFFICULTY.Easy,
+  h2h:false,
+  grid:[], rows:10, cols:10,
+  placed:[], found:new Set(),
+  circled:[],
+  stage:'search', time:0, running:false, last:0,
+  idle:0, hintLock:false,
+  p:[0,0], curP:0, wordIdx:0,   // H2H testing: reveal-one
+  dragging:false, startIdx:null, selPath:[],
+  input:[], owner:null
+};
+function setMode(h2h){
+  S.h2h = h2h;
+  document.body.classList.toggle('h2h', h2h);
+  hudMode.textContent = h2h ? 'H2H (local test)' : 'Solo';
+}
+function setDifficulty(name){
+  S.diffName = name; S.diff = DIFFICULTY[name]; hudDiff.textContent = name;
+  hintBtn.style.display = (S.diff.showHintBtn ? 'flex' : 'none');
+}
+
+/* ========= layout ========= */
+function layout(){
+  const headH = document.querySelector('header').offsetHeight;
+  const bottomH = document.querySelector('#bottom').offsetHeight;
+  const topH = Math.max(220, innerHeight - headH - bottomH - 10);
+  $('#top').style.top = headH + 'px';
+  $('#top').style.height = topH + 'px';
+  gridEl.style.gridTemplateColumns = `repeat(${S.cols}, 1fr)`;
+  const size = Math.min(innerWidth-16, topH-12);
+  gridEl.style.width = size + 'px';
+  gridEl.style.height = size + 'px';
+}
+addEventListener('resize', layout);
+if (visualViewport) visualViewport.addEventListener('resize', layout);
+
+/* ========= grid building ========= */
+const DIRS_MAP = { H:[0,1], V:[1,0], D:[[1,1],[-1,1],[1,-1],[-1,-1]] };
+function allowedDirs(){
+  const d = [];
+  if (S.diff.dirs.includes('H')) d.push([0,1],[0,-1]);
+  if (S.diff.dirs.includes('V')) d.push([1,0],[-1,0]);
+  if (S.diff.dirs.includes('D')) d.push([1,1],[-1,-1],[1,-1],[-1,1]);
+  return d;
+}
+const idx = (r,c)=> r*S.cols + c;
+const inb = (r,c)=> r>=0 && c>=0 && r<S.rows && c<S.cols;
+function buildEmpty(){ S.grid = Array(S.rows*S.cols).fill(''); }
+function tryPlace(word){
+  const W = word.text.toUpperCase();
+  const dirs = allowedDirs();
+  for (let attempt=0; attempt<220; attempt++){
+    const dir = dirs[(Math.random()*dirs.length)|0];
+    const len = W.length;
+    const r0 = (Math.random()*S.rows)|0, c0 = (Math.random()*S.cols)|0;
+    const r1 = r0 + dir[0]*(len-1), c1 = c0 + dir[1]*(len-1);
+    if (!inb(r1,c1)) continue;
+    let ok=true, path=[];
+    for(let k=0;k<len;k++){
+      const r=r0+dir[0]*k, c=c0+dir[1]*k, id=idx(r,c);
+      const ch=S.grid[id]; if (ch && ch!==W[k]){ ok=false; break; }
+      path.push(id);
+    }
+    if(!ok) continue;
+    // backwards control
+    const placeStr = (S.diff.backwards===true) ? (Math.random()<.5? W : [...W].reverse().join(''))
+                    : (S.diff.backwards==='few' ? (Math.random()<.25? [...W].reverse().join('') : W)
+                    : (S.diff.backwards==='more'? (Math.random()<.5? [...W].reverse().join('') : W) : W));
+    for(let k=0;k<len;k++){ S.grid[path[k]] = placeStr[k]; }
+    S.placed.push({text:W, path, takeIndex:word.takeIndex});
+    return true;
+  }
+  return false;
+}
+function fillRandom(){
+  const LETTERS="EEEEEEEEEEEEEEEAAAAAAAIIIIIIIOOOOOONNNNRRRRRSSSSTTTTTDLLLLUGGBBCCMMPPFFHHVVWWYKJXQZ";
+  for(let i=0;i<S.grid.length;i++) if(!S.grid[i]) S.grid[i]=LETTERS[(Math.random()*LETTERS.length)|0];
+}
+
+/* ========= render ========= */
+function renderGrid(){
+  gridEl.innerHTML='';
+  for(let i=0;i<S.grid.length;i++){
+    const d=document.createElement('div'); d.className='cell'; d.textContent=S.grid[i]; d.dataset.idx=i;
+    gridEl.appendChild(d);
+  }
+}
+function renderWordList(){
+  wordsEl.innerHTML='';
+  CUR.words.forEach((w,i)=>{
+    const row=document.createElement('div'); row.className='w'; row.id='w_'+i;
+    const letters=w.text.toUpperCase().split('');
+    const circAt=w.takeIndex|0;
+    row.innerHTML = letters.map((ch,j)=> j===circAt? `<span class="circ">${ch}</span>`:`<span>${ch}</span>`).join('');
+    wordsEl.appendChild(row);
+  });
+  if (S.h2h){
+    document.querySelectorAll('#words .w').forEach(w=>w.classList.remove('active'));
+    $('#w_'+S.wordIdx)?.classList.add('active');
+  }
+}
+
+/* ========= selection ========= */
+function rcFromIdx(id){ return [(id/S.cols)|0, id%S.cols]; }
+function dirOf(a,b){
+  const [ar,ac]=rcFromIdx(a), [br,bc]=rcFromIdx(b);
+  const dr=Math.sign(br-ar), dc=Math.sign(bc-ac);
+  if(dr===0 && dc===0) return null;
+  if(dr!==0 && dc!==0 && Math.abs(br-ar)!==Math.abs(bc-ac)) return null;
+  return [dr,dc];
+}
+function cellsBetween(a,b){
+  const d=dirOf(a,b); if(!d) return null;
+  const [ar,ac]=rcFromIdx(a), [br,bc]=rcFromIdx(b);
+  const n=Math.max(Math.abs(br-ar), Math.abs(bc-ac))+1, out=[];
+  for(let k=0;k<n;k++){ const r=ar+d[0]*k, c=ac+d[1]*k; out.push(idx(r,c)); }
+  return out;
+}
+function setSel(on,list){ for(const id of list){ gridEl.children[id]?.classList.toggle('sel',on); } }
+function wordFrom(list){ return list.map(i=>S.grid[i]).join(''); }
+function findPlacedByPath(list){
+  const fwd=wordFrom(list), rev=wordFrom([...list].reverse());
+  if (S.h2h){
+    const target=CUR.words[S.wordIdx].text.toUpperCase();
+    if (fwd===target || rev===target) return S.placed.find(p=>p.text===target);
+    return null;
+  } else {
+    return S.placed.find(p=>!S.found.has(p.text) && (p.text===fwd || p.text===rev));
+  }
+}
+
+/* ========= hinting ========= */
+function showHint(){
+  if (S.stage!=='search') return;
+  S.hintLock=true; setTimeout(()=>S.hintLock=false, 2600);
+  let cand;
+  if (S.h2h){
+    cand = S.placed[S.wordIdx];
+  } else {
+    const pool=S.placed.filter(p=>!S.found.has(p.text));
+    cand = pool[(Math.random()*pool.length)|0];
+  }
+  if (!cand) return;
+  const id = cand.path[cand.takeIndex ?? ((Math.random()*cand.path.length)|0)];
+  const cell = gridEl.children[id]; if (cell){ cell.classList.add('hint'); setTimeout(()=>cell.classList.remove('hint'),1400); }
+  const wIdx = S.placed.findIndex(p=>p.text===cand.text);
+  const row = $('#w_'+wIdx); row?.querySelector('.circ')?.animate([{transform:'scale(1)'},{transform:'scale(1.15)'},{transform:'scale(1)'}],{duration:600});
+}
+hintBtn.onclick = showHint;
+
+/* ========= game content per run ========= */
+let CUR = { words:[], finalAnswer:'', unscrambleSecs:25 };
+function makeRun(){
+  // clone base and trim/extend word count by difficulty (for now keep fixed 6)
+  CUR.words = PUZZLE_BASE.words.map(w=>({...w}));
+  CUR.finalAnswer = PUZZLE_BASE.finalAnswer;
+  const t = timersForMode(S.diff, S.h2h);
+  CUR.unscrambleSecs = t.unscrambleSecs;
+}
+
+/* ========= game setup ========= */
+function buildGame(){
+  // apply diff to grid size
+  S.rows = S.diff.rows; S.cols = S.diff.cols;
+  makeRun();
+
+  S.grid.length=0; S.placed.length=0; S.found.clear(); S.circled.length=0;
+  S.stage='search'; hudStage.textContent='Search'; S.time = timersForMode(S.diff,S.h2h).searchSecs || 0;
+  hudTime.textContent = S.time ? Math.ceil(S.time) : '—';
+  S.running = !!S.time; S.last=0;
+  S.idle=0; S.hintLock=false;
+  S.p=[0,0]; S.curP=0; S.wordIdx=0; updateScores();
+  $('#gridWrap').style.display='flex'; $('#unsTop').style.display='none';
+  $('#buzzRow').style.display = S.h2h ? 'flex' : 'none';
+  setOwner(null);
+
+  for(let tries=0; tries<60; tries++){
+    buildEmpty(); S.placed.length=0;
+    let ok=true; for(const w of CUR.words){ if (!tryPlace(w)){ ok=false; break; } }
+    if (ok) break;
+  }
+  fillRandom(); renderGrid(); renderWordList(); layout();
+}
+
+/* ========= scoring ========= */
+function scoreWord(len, player){
+  const pts = Math.round(5 * len * (S.diff.mult||1));
+  if (S.h2h) S.p[player]+=pts; else S.p[0]+=pts; updateScores();
+}
+function scoreBonus(bonus, player){
+  const pts = Math.round(bonus * (S.diff.mult||1));
+  if (S.h2h) S.p[player]+=pts; else S.p[0]+=pts; updateScores();
+}
+function updateScores(){ p1ScoreEl.textContent=S.p[0]; p2ScoreEl.textContent=S.p[1]; }
+
+/* ========= selection & input ========= */
+function markInteraction(){ S.idle = 0; }
+['pointerdown','pointermove','keydown','click','touchstart'].forEach(ev => addEventListener(ev, markInteraction, {passive:true}));
+
+gridEl.addEventListener('pointerdown', e=>{
+  if (S.stage!=='search') return;
+  const el=e.target.closest('.cell'); if(!el) return;
+  S.dragging=true; S.selPath.length=0; S.startIdx=+el.dataset.idx;
+  S.selPath=[S.startIdx]; setSel(true,S.selPath);
+  gridEl.setPointerCapture(e.pointerId); e.preventDefault();
+},{passive:false});
+gridEl.addEventListener('pointermove', e=>{
+  if(!S.dragging || S.stage!=='search') return;
+  const el=document.elementFromPoint(e.clientX,e.clientY)?.closest('.cell'); if(!el) return;
+  const id=+el.dataset.idx; if(id===S.startIdx) return;
+  const seq=cellsBetween(S.startIdx,id); if(!seq) return;
+  setSel(false,S.selPath); S.selPath=seq; setSel(true,S.selPath);
+  e.preventDefault();
+},{passive:false});
+addEventListener('pointerup', e=>{
+  if(!S.dragging) return; S.dragging=false;
+  if(!S.selPath.length) return;
+  const placed=findPlacedByPath(S.selPath);
+  if(placed){
+    if (S.h2h){
+      // award to current "turn owner" (local test) and advance to next target word
+      awardWord(placed, S.curP);
+      S.wordIdx++;
+      if (S.wordIdx < CUR.words.length){
+        $('#w_'+(S.wordIdx-1))?.classList.add('done');
+        document.querySelectorAll('#words .w').forEach(w=>w.classList.remove('active'));
+        $('#w_'+S.wordIdx)?.classList.add('active');
+        S.curP = 1 - S.curP;
+      } else {
+        endSearchStartUnscramble();
+      }
+    } else {
+      S.found.add(placed.text);
+      for(const id of placed.path){ gridEl.children[id].classList.remove('sel'); gridEl.children[id].classList.add('found'); }
+      const wIdx = S.placed.findIndex(p=>p.text===placed.text);
+      const row = $('#w_'+wIdx); row.classList.add('done');
+      const circ = row.querySelector('.circ'); S.circled.push(circ.textContent);
+      scoreWord(placed.text.length, 0);
+      if (S.found.size === CUR.words.length) endSearchStartUnscramble();
+    }
+    buzz(12);
+  } else {
+    buzz([2,40,2]);
+    setSel(false,S.selPath);
+  }
+  S.selPath.length=0;
+});
+
+/* ========= H2H awarding & owner ========= */
+function awardWord(placed, player){
+  for(const id of placed.path){ gridEl.children[id].classList.remove('sel'); gridEl.children[id].classList.add('found'); }
+  const wIdx = S.placed.findIndex(p=>p.text===placed.text);
+  const row = $('#w_'+wIdx); row.classList.add('done');
+  const circ = row.querySelector('.circ'); if (circ) S.circled.push(circ.textContent);
+  scoreWord(placed.text.length, player);
+}
+$('#buzzP1').onclick = ()=> setOwner(0);
+$('#buzzP2').onclick = ()=> setOwner(1);
+function setOwner(p){
+  S.owner = p;
+  $('#ownerMsg').textContent = (p==null) ? '' : `P${p+1} typing…`;
+  $('#buzzP1').classList.toggle('own', p===0);
+  $('#buzzP2').classList.toggle('own', p===1);
+}
+
+/* ========= stage transition → Unscramble ========= */
+function endSearchStartUnscramble(){
+  document.querySelectorAll('#words .w').forEach(row=>row.classList.add('allfound'));
+
+  // Build circled letters once
+  if (!S.h2h){
+    S.circled = CUR.words
+      .map((w,i)=> $('#w_'+i).querySelector('.circ')?.textContent || '')
+      .filter(Boolean);
+  } else {
+    // already collected per word; de-dupe defensively
+    const seen=new Set(); S.circled = S.circled.filter(ch => (seen.has(ch)?false:(seen.add(ch),true)));
+  }
+
+  $('#gridWrap').style.display='none';
+  $('#unsTop').style.display='flex';
+  hudStage.textContent='Unscramble'; S.stage='unscramble';
+
+  buildUnscramble();
+  const t = timersForMode(S.diff,S.h2h).unscrambleSecs;
+  S.time = t || 0; S.running = !!t; hudTime.textContent = S.running? Math.ceil(S.time) : '—';
+  // in H2H local test, give initial input control to current player
+  if (S.h2h) setOwner(S.curP);
+}
+
+/* ========= unscramble ========= */
+function shuffle(a){ for(let i=a.length-1;i>0;i--){ const j=(Math.random()*(i+1))|0; [a[i],a[j]]=[a[j],a[i]]; } return a; }
+function buildUnscramble(){
+  const slots = $('#unsSlots'), bank = $('#unsBank'), msg = $('#unsMsg');
+  slots.innerHTML=''; bank.innerHTML=''; msg.textContent='';
+  S.input.length=0;
+
+  // add dummy letters for higher difficulties
+  const letters = [...S.circled];
+  const dummies = S.diff.dummies|0;
+  const pool="ETAOINSHRDLUCMWFGYPBVKJXQZ";
+  for(let i=0;i<dummies;i++) letters.push(pool[(Math.random()*pool.length)|0]);
+  shuffle(letters);
+
+  for (let i=0;i<CUR.finalAnswer.length;i++){
+    const s=document.createElement('div'); s.className='slot'; s.dataset.i=i; slots.appendChild(s);
+  }
+  letters.forEach((ch,i)=>{
+    const b=document.createElement('button'); b.className='chipL'; b.textContent=ch; b.dataset.i=i;
+    b.onclick=()=> pickFromBank(i);
+    bank.appendChild(b);
+  });
+}
+function pickFromBank(i){
+  if (S.h2h && S.owner==null) return;
+  const btn = $('#unsBank').querySelector(`.chipL[data-i="${i}"]`);
+  if (!btn || btn.disabled) return;
+  const k = S.input.length; if (k >= CUR.finalAnswer.length) return;
+  S.input.push(btn.textContent);
+  $('#unsSlots').children[k].textContent = btn.textContent;
+  btn.disabled = true; btn.style.opacity = .4;
+  buzz(8);
+}
+$('#unsClear').onclick = ()=>{
+  S.input.length=0;
+  for(const s of $('#unsSlots').children) s.textContent='';
+  for(const b of $('#unsBank').children){ b.disabled=false; b.style.opacity=1; }
+};
+$('#unsSubmit').onclick = ()=>{
+  const guess = S.input.join('').toUpperCase();
+  if (guess.length !== CUR.finalAnswer.length){ setUnsMsg('Incomplete', false); buzz([2,40,2]); return; }
+  if (guess === CUR.finalAnswer.toUpperCase()){
+    const bonus = Math.max(0, Math.ceil(S.time)) * 10;
+    const winner = S.h2h ? (S.owner ?? S.curP) : 0;
+    scoreBonus(bonus, winner);
+    setUnsMsg(`Correct! +${bonus} ⭐ to P${winner+1}`, true);
+    S.running=false; hudStage.textContent='Complete'; setOwner(null); buzz([10,40,10]);
+  } else {
+    setUnsMsg('Try again', false); buzz([2,40,2]);
+    if (S.h2h) setOwner(null);
+  }
+};
+function setUnsMsg(t, ok){ const el=$('#unsMsg'); el.textContent=t; el.style.color = ok? '#87f59f' : '#ff6b6b'; }
+
+/* ========= timers / tick ========= */
+function tick(now){
+  if (!now) now=performance.now();
+  const dt = S.last ? (now - S.last)/1000 : 0; S.last = now;
+
+  if (S.stage==='search'){
+    if (!S.h2h && S.diff.searchSecs){ // solo timed
+      if (S.running){ S.time -= dt; if (S.time<=0){ S.time=0; S.running=false; hudTime.textContent='0'; endSearchStartUnscramble(); } else { hudTime.textContent=Math.ceil(S.time); } }
+    } else {
+      hudTime.textContent = '—';
+    }
+    // idle hint only when allowed & timer exists OR showHintBtn is true
+    if (S.diff.hintAfter && !S.hintLock && !S.h2h){
+      S.idle += dt; if (S.idle >= S.diff.hintAfter){ showHint(); S.idle=0; }
+    }
+  } else if (S.stage==='unscramble'){
+    if (!S.h2h && S.running){ S.time -= dt; if (S.time<=0){ S.time=0; S.running=false; setUnsMsg('Time!', false); } hudTime.textContent=Math.ceil(S.time); }
+    else { hudTime.textContent='—'; }
+  }
+
+  requestAnimationFrame(tick);
+}
+
+/* ========= UI wiring ========= */
+$('#btnStart').onclick = ()=>{ buildGame(); tick(); };
+$('#modeChip').onclick = ()=>{ setMode(!S.h2h); buildGame(); };
+$('#diffChip').onclick = ()=>{
+  const order = Object.keys(DIFFICULTY);
+  const i = order.indexOf(S.diffName);
+  const next = order[(i+1)%order.length];
+  setDifficulty(next); buildGame();
+};
+
+/* ========= boot ========= */
+setMode(false);               // Solo by default
+setDifficulty('Easy');        // Easy by default (shows Hint button)
+buildGame(); layout(); tick();
+</script>
+</body>
+</html>
