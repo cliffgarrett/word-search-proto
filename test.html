@@ -48,29 +48,16 @@ html, body {
   font-family: system-ui, -apple-system, Segoe UI, Roboto, Inter, Helvetica, Arial, sans-serif;
 }
 
-whtml, body {
-    background: linear-gradient(
-    -45deg,
-    oklch(0.627 0.257 29.23) 0%,
-    oklch(0.769 0.184 61.84) 10%,
-    oklch(0.888 0.125 111.57) 20%,
-    oklch(0.833 0.171 142.48) 30%,
-    oklch(0.815 0.123 194.77) 40%,
-    oklch(0.779 0.142 207.2) 50%,
-    oklch(0.627 0.176 254.36) 60%,
-    oklch(0.488 0.235 296.97) 70%,
-    oklch(0.627 0.267 313.44) 80%,
-    oklch(0.701 0.274 328.35) 90%
-  );
-
-  background-size: 500% 500%;
-  animation: driftGradient 60s ease infinite;
+whtml, body {  background: linear-gradient(-45deg in oklch, red, orange, green, blue, indigo, violet);
+  
+  background-size: 600% 600%;
+  animation: driftGradient 120s ease infinite;
 }
 
 @keyframes driftGradient {
-  0% { background-position: 0% 50%; }
-  50% { background-position: 100% 50%; }
-  100% { background-position: 0% 50%; }
+  0% { background-position: 0% 0%; }
+  50% { background-position: 100% 100%; }
+  100% { background-position: 0% 0%; }
 }
   
   #wrap{position:fixed;inset:0;display:flex;flex-direction:column;}
@@ -712,6 +699,7 @@ $('#cfgApply').onclick = () => {
 </body>
 
 </html>
+
 
 
 
