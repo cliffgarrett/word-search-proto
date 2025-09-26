@@ -138,10 +138,7 @@ whtml, body {
 body[data-theme="plum"]   :root{ --drift-h1: 285; --drift-h2: 330; } /* default */
 body[data-theme="indigo"] :root{ --drift-h1: 255; --drift-h2: 300; }
 body[data-theme="magenta"]:root{ --drift-h1: 315; --drift-h2: 345; }
-
-div.d-none {
-  display: none !important:
-}
+  .hide, .d-none{ display:none !important; }
 </style>
 </head>
 <body>
@@ -150,9 +147,9 @@ div.d-none {
     <div id="btnStart" class="chip btn">▶ Start</div>
     <div id="modeChip" class="chip btn d-none" style="display: none;">Mode: <b id="hudMode">Solo</b></div>
     <div class="chip">Stage: <b id="hudStage">Search</b></div>
-    <div class="chip">⏱ <b id="hudTime">0</b> s</div>
+<div id="timeChip" class="chip">⏱ <b id="hudTime">—</b> s</div>
     <div class="chip pill">P1 ⭐ <b id="p1Score">0</b></div>
-    <div class="chip pill">P2 ⭐ <b id="p2Score">0</b></div>
+<div id="p2Chip" class="chip pill">P2 ⭐ <b id="p2Score">0</b></div>
     <div id="hintBtn" class="chip btn" style="display:none">💡 Hint</div>
     <div id="diffChip" class="chip btn d-none" style="display: none;">Difficulty: <b id="hudDiff">Easy</b></div>
     <div id="btnCfg" class="chip btn">⚙️ Settings</div>
@@ -226,6 +223,22 @@ const p1ScoreEl=$('#p1Score'), p2ScoreEl=$('#p2Score'), gridEl=$('#grid'), words
 const hintBtn=$('#hintBtn');
 const buzz = pat => ('vibrate' in navigator) && navigator.vibrate(pat);
 
+const timeChip = $('#timeChip');
+const p2Chip   = $('#p2Chip'); 
+
+function updateHudVisibility(){
+  const solo = !S.h2h;
+
+  // Hint: Solo only
+  hintBtn.style.display = solo ? 'flex' : 'none';
+
+  // P2 score: H2H only
+  p2Chip?.classList.toggle('hide', solo);
+
+  // Timer: Solo + UNSCRAMBLE only (and only if that stage actually uses a timer)
+  const showTimer = solo && S.stage === 'unscramble' && !!CUR.unscrambleSecs;
+  timeChip?.classList.toggle('hide', !showTimer);
+}
 /* ========= difficulty presets ========= */
 const DIFFICULTY = {
   Easy:   { rows:10, cols:10, dirs:['H','V'],            backwards:false, words:6, searchSecs:null, hintAfter:8,  unscrambleSecs:20, dummies:0, mult:0.9, showHintBtn:true },
@@ -278,6 +291,7 @@ function setMode(h2h){
     hintBtn.style.display = (S.diff.showHintBtn ? 'flex' : 'none');
     S.diff.hintAfter = DIFFICULTY[S.diffName].hintAfter; // restore normal
   }
+  updateHudVisibility();
 }
 function setDifficulty(name){
   S.diffName = name; S.diff = DIFFICULTY[name]; hudDiff.textContent = name;
@@ -454,6 +468,7 @@ function buildGame(){
     if (ok) break;
   }
   fillRandom(); renderGrid(); renderWordList(); layout();
+  updateHudVisibility():
 }
 
 /* ========= scoring ========= */
@@ -548,7 +563,7 @@ function endSearchStartUnscramble(){
   $('#gridWrap').style.display='none';
   $('#unsTop').style.display='flex';
   hudStage.textContent='Unscramble'; S.stage='unscramble';
-
+updateHudVisibility();
   buildUnscramble();
   const t = timersForMode(S.diff,S.h2h).unscrambleSecs;
   S.time = t || 0; S.running = !!t; hudTime.textContent = S.running? Math.ceil(S.time) : '—';
@@ -684,6 +699,7 @@ $('#cfgApply').onclick = () => {
 </body>
 
 </html>
+
 
 
 
