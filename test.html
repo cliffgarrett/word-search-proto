@@ -139,6 +139,21 @@ body[data-theme="plum"]   :root{ --drift-h1: 285; --drift-h2: 330; } /* default 
 body[data-theme="indigo"] :root{ --drift-h1: 255; --drift-h2: 300; }
 body[data-theme="magenta"]:root{ --drift-h1: 315; --drift-h2: 345; }
   .hide, .d-none{ display:none !important; }
+
+/* When a word is found, show its circled letter clearly */
+.w.reveal .circ { opacity: 1; border-color: #87f59f; }
+.w.reveal span:not(.circ){ opacity: .35; }
+
+/* A little celebratory pulse on reveal (optional) */
+@keyframes circPop { 0%{transform:scale(1)} 55%{transform:scale(1.18)} 100%{transform:scale(1)} }
+.w.reveal .circ { animation: circPop .35s ease-out; }
+
+/* 50% bigger bank letters under the inputs */
+#unsBank .chipL{
+  font-size: 1.5rem;          /* was ~1.0 */
+  padding: .45rem .7rem;      /* a touch larger hit area */
+  min-width: 2.2rem;          /* keeps them nicely square-ish */
+}
 </style>
 </head>
 <body>
@@ -524,6 +539,11 @@ addEventListener('pointerup', e=>{
       $('#w_'+wIdx)?.classList.add('done');
       scoreWord(placed.text.length, 0);
       if (S.found.size === CUR.words.length) endSearchStartUnscramble();
+      const wIdx = S.placed.findIndex(p=>p.text===placed.text);
+      const row = $('#w_'+wIdx);
+      row.classList.add('done', 'reveal');           // ← add 'reveal'
+      const circ = row.querySelector('.circ');
+if (circ) S.circled.push(circ.textContent);
     }
     buzz(12);
   } else {
@@ -539,6 +559,10 @@ function awardWord(placed, player){
   const wIdx = S.placed.findIndex(p=>p.text===placed.text);
   $('#w_'+wIdx)?.classList.add('done');
   scoreWord(placed.text.length, player);
+  const row = $('#w_'+wIdx);
+  row.classList.add('done', 'reveal');           // ← add 'reveal'
+  const circ = row.querySelector('.circ');
+  if (circ) S.circled.push(circ.textContent);
 }
 $('#buzzP1').onclick = ()=> setOwner(0);
 $('#buzzP2').onclick = ()=> setOwner(1);
@@ -699,6 +723,7 @@ $('#cfgApply').onclick = () => {
 </body>
 
 </html>
+
 
 
 
