@@ -139,21 +139,6 @@ body[data-theme="plum"]   :root{ --drift-h1: 285; --drift-h2: 330; } /* default 
 body[data-theme="indigo"] :root{ --drift-h1: 255; --drift-h2: 300; }
 body[data-theme="magenta"]:root{ --drift-h1: 315; --drift-h2: 345; }
   .hide, .d-none{ display:none !important; }
-
-/* When a word is found, show its circled letter clearly */
-.w.reveal .circ { opacity: 1; border-color: #87f59f; }
-.w.reveal span:not(.circ){ opacity: .35; }
-
-/* A little celebratory pulse on reveal (optional) */
-@keyframes circPop { 0%{transform:scale(1)} 55%{transform:scale(1.18)} 100%{transform:scale(1)} }
-.w.reveal .circ { animation: circPop .35s ease-out; }
-
-/* 50% bigger bank letters under the inputs */
-#unsBank .chipL{
-  font-size: 1.5rem;          /* was ~1.0 */
-  padding: .45rem .7rem;      /* a touch larger hit area */
-  min-width: 2.2rem;          /* keeps them nicely square-ish */
-}
 </style>
 </head>
 <body>
@@ -516,97 +501,52 @@ gridEl.addEventListener('pointermove', e=>{
   setSel(false,S.selPath); S.selPath=seq; setSel(true,S.selPath);
   e.preventDefault();
 },{passive:false});
-addEventListener('pointerup', e => {
-  if (!S.dragging) return;
-  S.dragging = false;
-  if (!S.selPath.length) return;
-
-  const placed = findPlacedByPath(S.selPath);
-
-  if (placed) {
-    if (S.h2h) {
-      // --- H2H branch ---
+addEventListener('pointerup', e=>{
+  if(!S.dragging) return; S.dragging=false;
+  if(!S.selPath.length) return;
+  const placed=findPlacedByPath(S.selPath);
+  if(placed){
+    if (S.h2h){
       awardWord(placed, S.curP);
       S.wordIdx++;
-
-      if (S.wordIdx < CUR.words.length) {
-        const prev = document.getElementById('w_' + (S.wordIdx - 1));
-        if (prev) prev.classList.add('done');
-        document.querySelectorAll('#words .w').forEach(w => w.classList.remove('active'));
-        const next = document.getElementById('w_' + S.wordIdx);
-        if (next) next.classList.add('active');
-        S.curP = 1 - S.curP; // swap player
+      if (S.wordIdx < CUR.words.length){
+        $('#w_'+(S.wordIdx-1))?.classList.add('done');
+        document.querySelectorAll('#words .w').forEach(w=>w.classList.remove('active'));
+        $('#w_'+S.wordIdx)?.classList.add('active');
+        S.curP = 1 - S.curP;
       } else {
         endSearchStartUnscramble();
       }
-
     } else {
-      // --- SOLO branch (reveal circled letter now) ---
       S.found.add(placed.text);
-
-      // paint the path
-      for (const id of placed.path) {
-        const cell = gridEl.children[id];
-        if (cell) { cell.classList.remove('sel'); cell.classList.add('found'); }
-      }
-
-      // mark the word row + reveal circled letter
-      const wIdx = S.placed.findIndex(p => p.text === placed.text);
-      const row  = document.getElementById('w_' + wIdx);
-      if (row) {
-        row.classList.add('done', 'reveal');
-        const circEl = row.querySelector('.circ');
-        if (circEl) {
-          const ch = circEl.textContent;
-          if (ch && S.circled[S.circled.length - 1] !== ch) S.circled.push(ch);
-        }
-      } else {
-        console.warn('solo: row not found for', placed.text, 'index=', wIdx);
-      }
-
+      for(const id of placed.path){ gridEl.children[id].classList.remove('sel'); gridEl.children[id].classList.add('found'); }
+      const wIdx = S.placed.findIndex(p=>p.text===placed.text);
+      $('#w_'+wIdx)?.classList.add('done');
       scoreWord(placed.text.length, 0);
-
-      if (S.found.size === CUR.words.length) {
-        endSearchStartUnscramble();
-      }
+      if (S.found.size === CUR.words.length) endSearchStartUnscramble();
     }
-
     buzz(12);
   } else {
-    // miss
-    buzz([2, 40, 2]);
-    setSel(false, S.selPath);
+    buzz([2,40,2]);
+    setSel(false,S.selPath);
   }
-
-  S.selPath.length = 0;
+  S.selPath.length=0;
 });
 
 /* ========= H2H awarding & owner ========= */
 function awardWord(placed, player){
-  // paint the grid path
-  for (const id of placed.path) {
-    const cell = gridEl.children[id];
-    if (cell) { cell.classList.remove('sel'); cell.classList.add('found'); }
-  }
-
-  // find the word-row once
-  const wIdx = S.placed.findIndex(p => p.text === placed.text);
-  const row  = document.getElementById('w_' + wIdx);
-
-  if (row) {
-    row.classList.add('done', 'reveal');        // show circled letter now
-    const circEl = row.querySelector('.circ');
-    if (circEl) {
-      const ch = circEl.textContent;
-      // avoid accidental duplicates
-      if (ch && S.circled[S.circled.length - 1] !== ch) S.circled.push(ch);
-    }
-  } else {
-    console.warn('awardWord: row not found for', placed.text, 'index=', wIdx);
-  }
-
-  // score after visual updates
+  for(const id of placed.path){ gridEl.children[id].classList.remove('sel'); gridEl.children[id].classList.add('found'); }
+  const wIdx = S.placed.findIndex(p=>p.text===placed.text);
+  $('#w_'+wIdx)?.classList.add('done');
   scoreWord(placed.text.length, player);
+}
+$('#buzzP1').onclick = ()=> setOwner(0);
+$('#buzzP2').onclick = ()=> setOwner(1);
+function setOwner(p){
+  S.owner = p;
+  $('#ownerMsg').textContent = (p==null) ? '' : `P${p+1} typing…`;
+  $('#buzzP1').classList.toggle('own', p===0);
+  $('#buzzP2').classList.toggle('own', p===1);
 }
 
 /* ========= stage transition → Unscramble ========= */
@@ -759,11 +699,6 @@ $('#cfgApply').onclick = () => {
 </body>
 
 </html>
-
-
-
-
-
 
 
 
