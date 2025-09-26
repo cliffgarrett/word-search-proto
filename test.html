@@ -139,21 +139,6 @@ body[data-theme="plum"]   :root{ --drift-h1: 285; --drift-h2: 330; } /* default 
 body[data-theme="indigo"] :root{ --drift-h1: 255; --drift-h2: 300; }
 body[data-theme="magenta"]:root{ --drift-h1: 315; --drift-h2: 345; }
   .hide, .d-none{ display:none !important; }
-
-/* Bigger cursor on touch, with stronger z-index */
-#handCursor{
-  position:fixed;
-  width:34px;height:34px;                   /* mouse default */
-  filter: drop-shadow(0 2px 4px rgba(0,0,0,.35));
-  opacity:0; pointer-events:none;
-  z-index:9999;
-  transition: opacity .12s ease, transform .06s ease;
-}
-#handCursor svg{width:100%;height:100%;display:block;}
-#handCursor.hand--show{ opacity:1; }
-#handCursor.hand--touch{ width:56px; height:56px; }  /* phone/tablet size */
-  /* Optional: left-handed mirror (toggle class on body if you want) */
-.lefty #handCursor { transform: scaleX(-1) translate(-10px,-26px); }
 </style>
 </head>
 <body>
@@ -254,42 +239,7 @@ function updateHudVisibility(){
   const showTimer = solo && S.stage === 'unscramble' && !!CUR.unscrambleSecs;
   timeChip?.classList.toggle('hide', !showTimer);
 }
-
-const hand = document.getElementById('handCursor');
-
-let handOff = { x:-10, y:-26 };     // default (mouse)
-let handSize = 34;
-
-function setHandMode(pointerType){
-  const isTouch = pointerType === 'touch';
-  hand.classList.toggle('hand--touch', isTouch);
-  if (isTouch){
-    handSize = 56;
-    handOff = { x:-28, y:-52 };     // bigger offset so it peeks out past finger
-  }else{
-    handSize = 34;
-    handOff = { x:-10, y:-26 };
-  }
-}
-
-/* Smart placement: flip side if close to right/top edges */
-function placeHand(cx, cy){
-  const margin = 12;
-  let ox = handOff.x, oy = handOff.y;
-
-  // if near right edge, put hand on left side of finger
-  if (cx > innerWidth - handSize - margin) ox = -handSize - 8;
-
-  // if near top edge, place hand slightly below finger so it’s not clipped
-  if (cy < handSize + margin) oy = 12;
-
-  hand.style.left = (cx + ox) + 'px';
-  hand.style.top  = (cy + oy) + 'px';
-}
-const showHand = (x,y)=>{ hand.classList.add('hand--show'); placeHand(x,y); };
-const moveHand = (x,y)=> placeHand(x,y);
-const hideHand = ()=> hand.classList.remove('hand--show');
-  
+/* ========= difficulty presets ========= */
 const DIFFICULTY = {
   Easy:   { rows:10, cols:10, dirs:['H','V'],            backwards:false, words:6, searchSecs:null, hintAfter:8,  unscrambleSecs:20, dummies:0, mult:0.9, showHintBtn:true },
   Normal: { rows:12, cols:12, dirs:['H','V','D'],        backwards:'few', words:6, searchSecs:null, hintAfter:12, unscrambleSecs:25, dummies:0, mult:1.0, showHintBtn:false },
@@ -538,16 +488,13 @@ function markInteraction(){ S.idle = 0; }
 
 gridEl.addEventListener('pointerdown', e=>{
   if (S.stage!=='search') return;
-  setHandMode(e.pointerType);          // NEW: pick touch vs mouse sizing/offset
-  showHand(e.clientX, e.clientY);
   const el=e.target.closest('.cell'); if(!el) return;
   S.dragging=true; S.selPath.length=0; S.startIdx=+el.dataset.idx;
   S.selPath=[S.startIdx]; setSel(true,S.selPath);
-  gridEl.setPointerCapture(e.pointerId); e.preventDefault()
+  gridEl.setPointerCapture(e.pointerId); e.preventDefault();
 },{passive:false});
 gridEl.addEventListener('pointermove', e=>{
   if(!S.dragging || S.stage!=='search') return;
-  moveHand(e.clientX, e.clientY);
   const el=document.elementFromPoint(e.clientX,e.clientY)?.closest('.cell'); if(!el) return;
   const id=+el.dataset.idx; if(id===S.startIdx) return;
   const seq=cellsBetween(S.startIdx,id); if(!seq) return;
@@ -556,7 +503,6 @@ gridEl.addEventListener('pointermove', e=>{
 },{passive:false});
 addEventListener('pointerup', e=>{
   if(!S.dragging) return; S.dragging=false;
-  hideHand(); 
   if(!S.selPath.length) return;
   const placed=findPlacedByPath(S.selPath);
   if(placed){
@@ -750,35 +696,8 @@ $('#cfgApply').onclick = () => {
 });
 
 </script>
-<!-- Tiny hand cursor (hidden by default) -->
-<div id="handCursor" aria-hidden="true">
-  <svg viewBox="0 0 48 48">
-    <!-- simple stylized hand with fingertip -->
-    <path d="M24 6c2 0 3 1.6 3 3.4V20h1.8c1.6 0 2.9 1.3 2.9 2.9v5.6c0 .8-.3 1.5-.9 2.1l-6.7 6.7c-.6.6-1.4.9-2.2.9H16c-1.7 0-3-1.3-3-3v-8l-1.8-1.8A2.9 2.9 0 0 1 10.6 22c0-1.6 1.3-2.9 2.9-2.9H15V10.2C15 8 16.8 6 19 6s3 1.7 3 3.8V20h1.5V9.4C23.5 7.4 25 6 27 6z" fill="#222"/>
-    <circle cx="36.5" cy="14.5" r="3.5" fill="#fff" stroke="#222" stroke-width="2"/>
-  </svg>
-</div>    
 </body>
+
 </html>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
