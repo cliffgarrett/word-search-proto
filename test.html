@@ -555,22 +555,30 @@ if (circ) S.circled.push(circ.textContent);
 
 /* ========= H2H awarding & owner ========= */
 function awardWord(placed, player){
-  for(const id of placed.path){ gridEl.children[id].classList.remove('sel'); gridEl.children[id].classList.add('found'); }
-  const wIdx = S.placed.findIndex(p=>p.text===placed.text);
-  $('#w_'+wIdx)?.classList.add('done');
+  // paint the grid path
+  for (const id of placed.path) {
+    const cell = gridEl.children[id];
+    if (cell) { cell.classList.remove('sel'); cell.classList.add('found'); }
+  }
+
+  // find the word-row once
+  const wIdx = S.placed.findIndex(p => p.text === placed.text);
+  const row  = document.getElementById('w_' + wIdx);
+
+  if (row) {
+    row.classList.add('done', 'reveal');        // show circled letter now
+    const circEl = row.querySelector('.circ');
+    if (circEl) {
+      const ch = circEl.textContent;
+      // avoid accidental duplicates
+      if (ch && S.circled[S.circled.length - 1] !== ch) S.circled.push(ch);
+    }
+  } else {
+    console.warn('awardWord: row not found for', placed.text, 'index=', wIdx);
+  }
+
+  // score after visual updates
   scoreWord(placed.text.length, player);
-  const row = $('#w_'+wIdx);
-  row.classList.add('done', 'reveal');           // ← add 'reveal'
-  const circ = row.querySelector('.circ');
-  if (circ) S.circled.push(circ.textContent);
-}
-$('#buzzP1').onclick = ()=> setOwner(0);
-$('#buzzP2').onclick = ()=> setOwner(1);
-function setOwner(p){
-  S.owner = p;
-  $('#ownerMsg').textContent = (p==null) ? '' : `P${p+1} typing…`;
-  $('#buzzP1').classList.toggle('own', p===0);
-  $('#buzzP2').classList.toggle('own', p===1);
 }
 
 /* ========= stage transition → Unscramble ========= */
@@ -723,6 +731,7 @@ $('#cfgApply').onclick = () => {
 </body>
 
 </html>
+
 
 
 
