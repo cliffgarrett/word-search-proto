@@ -142,15 +142,15 @@ body[data-theme="magenta"]:root{ --drift-h1: 315; --drift-h2: 345; }
 
 #handCursor{
   position:fixed;
-  width:34px; height:34px;     /* tweak size here */
-  transform: translate(-10px,-26px); /* offset so fingertip sits ahead of touch */
+  width:34px;height:34px;
+  transform: translate(-10px,-26px);
   filter: drop-shadow(0 2px 4px rgba(0,0,0,.35));
-  opacity:0; pointer-events:none; z-index:25;   /* above grid, below HUD */
+  opacity:0; pointer-events:none;
+  z-index:9999;               /* bump way up to be safe */
   transition: opacity .12s ease;
 }
-#handCursor svg{ width:100%; height:100%; display:block; }
-.hand--show { opacity:1; }
-
+#handCursor svg{width:100%;height:100%;display:block;}
+#handCursor.hand--show{ opacity:1; }   /* <- stronger selector & after block */
 /* Optional: left-handed mirror (toggle class on body if you want) */
 .lefty #handCursor { transform: scaleX(-1) translate(-10px,-26px); }
 </style>
@@ -222,14 +222,6 @@ body[data-theme="magenta"]:root{ --drift-h1: 315; --drift-h2: 345; }
     </div>
   </div>
 </div>
-<!-- Tiny hand cursor (hidden by default) -->
-<div id="handCursor" aria-hidden="true">
-  <svg viewBox="0 0 48 48">
-    <!-- simple stylized hand with fingertip -->
-    <path d="M24 6c2 0 3 1.6 3 3.4V20h1.8c1.6 0 2.9 1.3 2.9 2.9v5.6c0 .8-.3 1.5-.9 2.1l-6.7 6.7c-.6.6-1.4.9-2.2.9H16c-1.7 0-3-1.3-3-3v-8l-1.8-1.8A2.9 2.9 0 0 1 10.6 22c0-1.6 1.3-2.9 2.9-2.9H15V10.2C15 8 16.8 6 19 6s3 1.7 3 3.8V20h1.5V9.4C23.5 7.4 25 6 27 6z" fill="#222"/>
-    <circle cx="36.5" cy="14.5" r="3.5" fill="#fff" stroke="#222" stroke-width="2"/>
-  </svg>
-</div>    
   </div>
 
   <div id="bottom">
@@ -263,14 +255,10 @@ function updateHudVisibility(){
 }
 
 const hand = document.getElementById('handCursor');
-const showHand = (x,y) => { 
-  hand.style.left = x + 'px';
-  hand.style.top  = y + 'px';
-  hand.classList.add('hand--show');
-};
-const moveHand = (x,y) => { hand.style.left = x + 'px'; hand.style.top = y + 'px'; };
-const hideHand = () => hand.classList.remove('hand--show');
-/* ========= difficulty presets ========= */
+const showHand = (x,y)=>{ hand.style.left=x+'px'; hand.style.top=y+'px'; hand.classList.add('hand--show'); };
+const moveHand = (x,y)=>{ hand.style.left=x+'px'; hand.style.top=y+'px'; };
+const hideHand = ()=> hand.classList.remove('hand--show');/* ========= difficulty presets ========= */
+
 const DIFFICULTY = {
   Easy:   { rows:10, cols:10, dirs:['H','V'],            backwards:false, words:6, searchSecs:null, hintAfter:8,  unscrambleSecs:20, dummies:0, mult:0.9, showHintBtn:true },
   Normal: { rows:12, cols:12, dirs:['H','V','D'],        backwards:'few', words:6, searchSecs:null, hintAfter:12, unscrambleSecs:25, dummies:0, mult:1.0, showHintBtn:false },
@@ -519,11 +507,11 @@ function markInteraction(){ S.idle = 0; }
 
 gridEl.addEventListener('pointerdown', e=>{
   if (S.stage!=='search') return;
+  showHand(e.clientX, e.clientY);
   const el=e.target.closest('.cell'); if(!el) return;
   S.dragging=true; S.selPath.length=0; S.startIdx=+el.dataset.idx;
   S.selPath=[S.startIdx]; setSel(true,S.selPath);
-  gridEl.setPointerCapture(e.pointerId); e.preventDefault();
-  showHand(e.clientX, e.clientY);
+  gridEl.setPointerCapture(e.pointerId); e.preventDefault()
 },{passive:false});
 gridEl.addEventListener('pointermove', e=>{
   if(!S.dragging || S.stage!=='search') return;
@@ -730,9 +718,17 @@ $('#cfgApply').onclick = () => {
 });
 
 </script>
+<!-- Tiny hand cursor (hidden by default) -->
+<div id="handCursor" aria-hidden="true">
+  <svg viewBox="0 0 48 48">
+    <!-- simple stylized hand with fingertip -->
+    <path d="M24 6c2 0 3 1.6 3 3.4V20h1.8c1.6 0 2.9 1.3 2.9 2.9v5.6c0 .8-.3 1.5-.9 2.1l-6.7 6.7c-.6.6-1.4.9-2.2.9H16c-1.7 0-3-1.3-3-3v-8l-1.8-1.8A2.9 2.9 0 0 1 10.6 22c0-1.6 1.3-2.9 2.9-2.9H15V10.2C15 8 16.8 6 19 6s3 1.7 3 3.8V20h1.5V9.4C23.5 7.4 25 6 27 6z" fill="#222"/>
+    <circle cx="36.5" cy="14.5" r="3.5" fill="#fff" stroke="#222" stroke-width="2"/>
+  </svg>
+</div>    
 </body>
-
 </html>
+
 
 
 
