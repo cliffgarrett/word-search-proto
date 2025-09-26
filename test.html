@@ -143,16 +143,16 @@ body[data-theme="magenta"]:root{ --drift-h1: 315; --drift-h2: 345; }
 </head>
 <body>
 <div id="wrap">
-    <header>
+  <header>
     <div id="btnStart" class="chip btn">▶ Start</div>
     <div id="modeChip" class="chip btn d-none" style="display: none;">Mode: <b id="hudMode">Solo</b></div>
-    <div class="chip">Stage: <b id="hudStage">Search</b></div>
-<div id="timeChip" class="chip">⏱ <b id="hudTime">—</b> s</div>
-    <div class="chip pill">P1 ⭐ <b id="p1Score">0</b></div>
-<div id="p2Chip" class="chip pill">P2 ⭐ <b id="p2Score">0</b></div>
+    <div class="chip">Stage: <b id="hudStage" style="display: none;">Search</b></div>
+    <div id="btnCfg" class="chip btn">⚙️ Settings</div>
+    <div id="timeChip" class="chip">⏱ <b id="hudTime">—</b> s</div>
     <div id="hintBtn" class="chip btn" style="display:none">💡 Hint</div>
     <div id="diffChip" class="chip btn d-none" style="display: none;">Difficulty: <b id="hudDiff">Easy</b></div>
-    <div id="btnCfg" class="chip btn">⚙️ Settings</div>
+    <div class="chip pill">P1 ⭐ <b id="p1Score">0</b></div>
+    <div id="p2Chip" class="chip pill">P2 ⭐ <b id="p2Score">0</b></div>
   </header>
   <div id="top">
     <div id="gridWrap"><div id="grid" aria-label="letter grid"></div></div>
@@ -699,6 +699,7 @@ $('#cfgApply').onclick = () => {
 </body>
 
 </html>
+
 
 
 
