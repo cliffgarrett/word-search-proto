@@ -291,7 +291,7 @@ function setMode(h2h){
     hintBtn.style.display = (S.diff.showHintBtn ? 'flex' : 'none');
     S.diff.hintAfter = DIFFICULTY[S.diffName].hintAfter; // restore normal
   }
-  updateHudVisibility();
+ // updateHudVisibility();
 }
 function setDifficulty(name){
   S.diffName = name; S.diff = DIFFICULTY[name]; hudDiff.textContent = name;
@@ -468,7 +468,7 @@ function buildGame(){
     if (ok) break;
   }
   fillRandom(); renderGrid(); renderWordList(); layout();
-  updateHudVisibility():
+  //updateHudVisibility():
 }
 
 /* ========= scoring ========= */
@@ -699,6 +699,7 @@ $('#cfgApply').onclick = () => {
 </body>
 
 </html>
+
 
 
 
