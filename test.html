@@ -114,6 +114,30 @@ whtml, body {
   .buzz{background:#1e232a;border:1px solid rgba(255,255,255,.18); border-radius:.8rem;
     padding:.55rem .9rem; font-weight:900; cursor:pointer}
   .own{outline:2px solid var(--accent);}
+
+/* Settings modal */
+#cfg{
+  position:fixed; inset:0; z-index:40; display:flex; align-items:center; justify-content:center;
+  background:rgba(0,0,0,.45); backdrop-filter:blur(6px);
+}
+#cfg[hidden]{ display:none; }
+#cfg .panel{
+  width:min(92vw,480px); background:#14151a; color:var(--fg);
+  border:1px solid rgba(255,255,255,.14); border-radius:14px; padding:14px;
+  box-shadow:0 10px 30px rgba(0,0,0,.45);
+}
+#cfg h3{ margin:.1rem 0 .7rem 0; }
+#cfg .row{ display:flex; align-items:center; justify-content:space-between; margin:.4rem 0; gap:.8rem; }
+#cfg select{
+  background:#1c2027; color:var(--fg); border:1px solid rgba(255,255,255,.18);
+  border-radius:10px; padding:.35rem .55rem; min-width:170px; font-weight:600;
+}
+#cfg .actions{ display:flex; justify-content:flex-end; gap:.5rem; margin-top:.7rem; }
+
+/* theme hooks – you already have the drifting gradient; these just tweak hues */
+body[data-theme="plum"]   :root{ --drift-h1: 285; --drift-h2: 330; } /* default */
+body[data-theme="indigo"] :root{ --drift-h1: 255; --drift-h2: 300; }
+body[data-theme="magenta"]:root{ --drift-h1: 315; --drift-h2: 345; }
 </style>
 </head>
 <body>
@@ -127,6 +151,7 @@ whtml, body {
     <div class="chip pill">P2 ⭐ <b id="p2Score">0</b></div>
     <div id="hintBtn" class="chip btn" style="display:none">💡 Hint</div>
     <div id="diffChip" class="chip btn">Difficulty: <b id="hudDiff">Easy</b></div>
+    <div id="btnCfg" class="chip btn">⚙️ Settings</div>
   </header>
 
   <div id="top">
@@ -145,6 +170,44 @@ whtml, body {
       </div>
       <div id="unsMsg" style="margin-top:.4rem;min-height:1.2rem"></div>
     </div>
+    <div id="cfg" aria-modal="true" role="dialog" hidden>
+  <div class="panel">
+    <h3>Settings</h3>
+
+    <label class="row">
+      <span>Mode</span>
+      <select id="cfgMode">
+        <option value="solo">Solo</option>
+        <option value="h2h">Head-to-Head (local test)</option>
+      </select>
+    </label>
+
+    <label class="row">
+      <span>Difficulty</span>
+      <select id="cfgDiff">
+        <option>Easy</option>
+        <option>Normal</option>
+        <option>Hard</option>
+        <option>Expert</option>
+        <option>Zen</option>
+      </select>
+    </label>
+
+    <label class="row">
+      <span>Theme</span>
+      <select id="cfgTheme">
+        <option value="plum">Plum Drift (default)</option>
+        <option value="indigo">Indigo</option>
+        <option value="magenta">Magenta</option>
+      </select>
+    </label>
+
+    <div class="actions">
+      <button id="cfgCancel" class="chip btn">Cancel</button>
+      <button id="cfgApply"  class="chip btn">Apply</button>
+    </div>
+  </div>
+</div>
   </div>
 
   <div id="bottom">
@@ -578,10 +641,46 @@ $('#diffChip').onclick = ()=>{
   layout();
   tick();
 });
+
+ // ==== Settings modal wiring ====
+const cfg = $('#cfg'), cfgMode = $('#cfgMode'), cfgDiff = $('#cfgDiff'), cfgTheme = $('#cfgTheme');
+$('#btnCfg').onclick = () => {
+  // populate from current state
+  cfgMode.value = S.h2h ? 'h2h' : 'solo';
+  cfgDiff.value = S.diffName;
+  cfgTheme.value = (localStorage.getItem('ws_theme') || 'plum');
+  cfg.hidden = false;
+};
+$('#cfgCancel').onclick = () => { cfg.hidden = true; };
+
+// apply & persist
+$('#cfgApply').onclick = () => {
+  const wantH2H = (cfgMode.value === 'h2h');
+  const wantDiff = cfgDiff.value;
+  const theme = cfgTheme.value;
+
+  // mode + difficulty (uses your existing helpers)
+  setMode(wantH2H);
+  setDifficulty(wantDiff);
+  buildGame();
+
+  // simple theme hook (class on body)
+  document.body.dataset.theme = theme;
+  localStorage.setItem('ws_theme', theme);
+
+  cfg.hidden = true;
+};
+
+// optional: theme styles (minimal)
+(function initTheme(){
+  const t = localStorage.getItem('ws_theme') || 'plum';
+  document.body.dataset.theme = t;
+})(); 
 </script>
 </body>
 
 </html>
+
 
 
 
