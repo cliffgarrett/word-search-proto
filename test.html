@@ -456,6 +456,7 @@ function buildGame(){
   S.stage='search'; hudStage.textContent='Search';
   const t = timersForMode(S.diff,S.h2h);
   S.time = t.searchSecs || 0; S.running = false; hudTime.textContent='—';
+  updateHudVisibility():
   S.idle=0; S.hintLock=false;
   S.p=[0,0]; S.curP=0; S.wordIdx=0; updateScores();
   $('#gridWrap').style.display='flex'; $('#unsTop').style.display='none';
@@ -468,7 +469,6 @@ function buildGame(){
     if (ok) break;
   }
   fillRandom(); renderGrid(); renderWordList(); layout();
-  //updateHudVisibility():
 }
 
 /* ========= scoring ========= */
@@ -699,6 +699,7 @@ $('#cfgApply').onclick = () => {
 </body>
 
 </html>
+
 
 
 
