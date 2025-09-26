@@ -640,7 +640,6 @@ $('#diffChip').onclick = ()=>{
   buildGame();
   layout();
   tick();
-});
 
  // ==== Settings modal wiring ====
 const cfg = $('#cfg'), cfgMode = $('#cfgMode'), cfgDiff = $('#cfgDiff'), cfgTheme = $('#cfgTheme');
@@ -653,7 +652,7 @@ $('#btnCfg').onclick = () => {
 };
 $('#cfgCancel').onclick = () => { cfg.hidden = true; };
 
-// apply & persist
+// apply & persist to
 $('#cfgApply').onclick = () => {
   const wantH2H = (cfgMode.value === 'h2h');
   const wantDiff = cfgDiff.value;
@@ -676,10 +675,13 @@ $('#cfgApply').onclick = () => {
   const t = localStorage.getItem('ws_theme') || 'plum';
   document.body.dataset.theme = t;
 })(); 
+});
+
 </script>
 </body>
 
 </html>
+
 
 
 
