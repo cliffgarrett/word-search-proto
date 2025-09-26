@@ -203,6 +203,15 @@ function setMode(h2h){
   S.h2h = h2h;
   document.body.classList.toggle('h2h', h2h);
   hudMode.textContent = h2h ? 'H2H (local test)' : 'Solo';
+
+  // 🚫 Disable all hints in H2H
+  if (h2h) {
+    hintBtn.style.display = 'none';
+    S.diff.hintAfter = null;  // no idle hints
+  } else {
+    hintBtn.style.display = (S.diff.showHintBtn ? 'flex' : 'none');
+    S.diff.hintAfter = DIFFICULTY[S.diffName].hintAfter; // restore normal
+  }
 }
 function setDifficulty(name){
   S.diffName = name; S.diff = DIFFICULTY[name]; hudDiff.textContent = name;
@@ -573,6 +582,7 @@ $('#diffChip').onclick = ()=>{
 </body>
 
 </html>
+
 
 
 
