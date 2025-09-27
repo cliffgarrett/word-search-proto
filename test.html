@@ -468,7 +468,7 @@ function buildGame(){
 
   S.grid.length=0; S.placed.length=0; S.found.clear(); S.circled.length=0;
   S.claimed.clear(); S.unscrambleStarted=false;
-  S.stage='search'; hudStage.textContent='Search';
+  //S.stage='search'; hudStage.textContent='Search';
   const t = timersForMode(S.diff,S.h2h);
   S.time = t.searchSecs || 0; S.running = false; hudTime.textContent='—';
   S.idle=0; S.hintLock=false;
@@ -652,7 +652,7 @@ function tick(now){
 
 /* ========= UI wiring ========= */
 $('#btnStart').onclick = ()=>{ buildGame(); tick(); };
-$('#modeChip').onclick = ()=>{ setMode(!S.h2h); buildGame(); };
+//$('#modeChip').onclick = ()=>{ setMode(!S.h2h); buildGame(); };
 $('#diffChip').onclick = ()=>{
   const order = Object.keys(DIFFICULTY);
   const i = order.indexOf(S.diffName);
@@ -697,6 +697,7 @@ $('#cfgApply').onclick = () => {
 </script>
 </body>
 </html>
+
 
 
 
