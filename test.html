@@ -653,12 +653,12 @@ function tick(now){
 /* ========= UI wiring ========= */
 $('#btnStart').onclick = ()=>{ buildGame(); tick(); };
 //$('#modeChip').onclick = ()=>{ setMode(!S.h2h); buildGame(); };
-$('#diffChip').onclick = ()=>{
-  const order = Object.keys(DIFFICULTY);
-  const i = order.indexOf(S.diffName);
-  const next = order[(i+1)%order.length];
-  setDifficulty(next); buildGame();
-};
+//$('#diffChip').onclick = ()=>{
+//  const order = Object.keys(DIFFICULTY);
+//  const i = order.indexOf(S.diffName);
+//  const next = order[(i+1)%order.length];
+//  setDifficulty(next); buildGame();
+//};
 
 /* ========= boot ========= */
 setMode(false);
@@ -697,6 +697,7 @@ $('#cfgApply').onclick = () => {
 </script>
 </body>
 </html>
+
 
 
 
