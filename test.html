@@ -79,7 +79,7 @@ const sb = window.supabase.createClient(SB_URL, SB_KEY);
     border-radius:.55rem; padding:.55rem .85rem; font-weight:900; cursor:pointer; color:#fff}
   #buzzRow{display:none; gap:.5rem; margin-top:.6rem; align-items:center; flex-wrap:wrap; justify-content:center}
   .buzz{background:#1e232a;border:1px solid rgba(255,255,255,.18); border-radius:.8rem;
-    padding:.55rem .9rem; font-weight:900; cursor:pointer;color:#ffffff}
+    padding:.55rem .9rem; font-weight:900; cursor:pointer}
   .own{outline:2px solid var(--accent);}
 
   /* Settings modal */
@@ -178,30 +178,14 @@ const sb = window.supabase.createClient(SB_URL, SB_KEY);
 </div>
 
 <script>
-document.addEventListener('DOMContentLoaded', () => {
-/* ========= helpers ========= */
+/* ======== Basic helpers ======== */
 const $ = s => document.querySelector(s);
-const hudMode=$('#hudMode'), hudDiff=$('#hudDiff'), hudStage=$('#hudStage'), hudTime=$('#hudTime');
-const p1ScoreEl=$('#p1Score'), p2ScoreEl=$('#p2Score'), gridEl=$('#grid'), wordsEl=$('#words');
-const hintBtn=$('#hintBtn');
-const timeChip = $('#timeChip');
-const p2Chip   = $('#p2Chip');
+const hudTime=$('#hudTime'), p1ScoreEl=$('#p1Score'), p2ScoreEl=$('#p2Score'),
+      gridEl=$('#grid'), wordsEl=$('#words'), hintBtn=$('#hintBtn'),
+      timeChip=$('#timeChip'), p2Chip=$('#p2Chip'), roomChip=$('#roomChip'), hudRoom=$('#hudRoom');
 const buzz = pat => ('vibrate' in navigator) && navigator.vibrate(pat);
 
-/* ========= (optional) online stubs ========= */
-/* These no-op stubs let the code run fine offline; later you can wire them to Supabase. */
-const Net = {
-  _me: { roomId: null, pid: 'p1' },             // 'p1' or 'p2'
-  me(){ return this._me; },
-  setMe(pid){ this._me.pid = pid; },
-  join(roomId){ this._me.roomId = roomId; },
-  signalFound(idx){ /* TODO: post to realtime channel; remote will call onClaim */ },
-  onClaim(idx, by){ /* set by subscribeOnline() */ },
-  subscribeOnline(){ /* later: wire to Supabase channel and call Net.onClaim(idx, byPid) */ }
-};
-
-/* ========= difficulty presets ========= */
-/* Search stages have NO timers. Unscramble timer is Solo only. */
+/* ======== Difficulty (no search timer) ======== */
 const DIFFICULTY = {
   Easy:   { rows:10, cols:10, dirs:['H','V'],            backwards:false, words:6, searchSecs:null, hintAfter:8,  unscrambleSecs:20, dummies:0, mult:0.9, showHintBtn:true },
   Normal: { rows:12, cols:12, dirs:['H','V','D'],        backwards:'few', words:6, searchSecs:null, hintAfter:12, unscrambleSecs:25, dummies:0, mult:1.0, showHintBtn:false },
@@ -209,11 +193,6 @@ const DIFFICULTY = {
   Expert: { rows:14, cols:14, dirs:['H','V','D'],        backwards:true,  words:8, searchSecs:null, hintAfter:null,unscrambleSecs:30, dummies:2, mult:1.4, showHintBtn:false },
   Zen:    { rows:12, cols:12, dirs:['H','V','D'],        backwards:false, words:6, searchSecs:null, hintAfter:6,  unscrambleSecs:60, dummies:0, mult:0.6, showHintBtn:true }
 };
-function timersForMode(diff, h2h){
-  return { searchSecs:null, unscrambleSecs: h2h ? null : diff.unscrambleSecs };
-}
-
-/* ========= sample puzzle ========= */
 const PUZZLE_BASE = {
   words: [
     {text:'APPLE', takeIndex:1},
@@ -226,10 +205,10 @@ const PUZZLE_BASE = {
   finalAnswer: 'PICNIC'
 };
 
-/* ========= state ========= */
+/* ======== State ======== */
 const S = {
   diffName:'Easy', diff: DIFFICULTY.Easy,
-  h2h:false, online:false,                     // online = false by default (local test)
+  h2h:false, online:false,          // online => Supabase backed
   grid:[], rows:10, cols:10,
   placed:[], found:new Set(),
   circled:[],
@@ -238,91 +217,79 @@ const S = {
   p:[0,0], curP:0, wordIdx:0,
   dragging:false, startIdx:null, selPath:[],
   input:[], owner:null,
-  // NEW for synced advancing
-  claimed: new Set(),
-  unscrambleStarted: false
+  // seeding for online sync
+  seed:null, useSeed:false, rng:null
 };
 
-function updateHudVisibility(){
-  const solo = !S.h2h;
-  hintBtn.style.display = solo && S.diff.showHintBtn ? 'flex' : 'none';
-  p2Chip?.classList.toggle('hide', solo);
-  const showTimer = solo && S.stage === 'unscramble' && !!CUR.unscrambleSecs;
-  timeChip?.classList.toggle('hide', !showTimer);
-}
+/* ======== Seeded RNG (mulberry32) ======== */
+function mulberry32(a){ return function(){ let t = a += 0x6D2B79F5; t = Math.imul(t ^ t>>>15, t | 1); t ^= t + Math.imul(t ^ t>>>7, t | 61); return ((t ^ t>>>14) >>> 0) / 4294967296; }; }
+function setRngSeed(seed){ S.seed = seed|0; S.rng = mulberry32(S.seed); S.useSeed = true; }
+const R = () => (S.useSeed && S.rng ? S.rng() : Math.random());
 
-function setMode(h2h){
-  S.h2h = h2h;
-  document.body.classList.toggle('h2h', h2h);
-  //hudMode.textContent = h2h ? 'H2H (local test)' : 'Solo';
-  if (h2h){
-    hintBtn.style.display = 'none';
-    S.diff.hintAfter = null;   // no idle hints in competition
-  } else {
-    hintBtn.style.display = (S.diff.showHintBtn ? 'flex' : 'none');
-    S.diff.hintAfter = DIFFICULTY[S.diffName].hintAfter;
-  }
-  updateHudVisibility();
-}
-function setDifficulty(name){
-  S.diffName = name; S.diff = DIFFICULTY[name]; hudDiff.textContent = name;
-  hintBtn.style.display = (!S.h2h && S.diff.showHintBtn) ? 'flex' : 'none';
-}
+/* ======== Mode & HUD visibility ======== */
+function setMode(kind){
+  // kind: 'solo' | 'h2h_local' | 'h2h_online'
+  S.h2h = (kind !== 'solo');
+  S.online = (kind === 'h2h_online');
+  document.body.classList.toggle('h2h', S.h2h);
 
-/* ========= layout (mobile-friendly scaling) ========= */
+  // Hints only in Solo
+  if (S.h2h) { hintBtn.style.display='none'; S.diff.hintAfter=null; }
+  else { hintBtn.style.display = (S.diff.showHintBtn ? 'flex' : 'none'); S.diff.hintAfter = DIFFICULTY[S.diffName].hintAfter; }
+
+  // P2 score only in H2H
+  p2Chip.classList.toggle('hide', !S.h2h);
+
+  // Room chip only in online
+  roomChip.style.display = S.online ? 'flex' : 'none';
+}
+function setDifficulty(name){ S.diffName=name; S.diff = DIFFICULTY[name]; }
+
+/* ======== Layout ======== */
 function layout(){
-  const headerEl = document.querySelector('header');
-  const bottomEl = document.querySelector('#bottom');
-  if (!headerEl || !bottomEl || !gridEl) return;
-
-  const headH = headerEl.offsetHeight;
-  const bottomH = bottomEl.offsetHeight;
+  const head = document.querySelector('header'), bottom = document.querySelector('#bottom');
+  const topEl = document.getElementById('top');
+  if (!head || !bottom || !topEl) return;
+  const headH = head.offsetHeight, bottomH = bottom.offsetHeight;
   const topH = Math.max(220, innerHeight - headH - bottomH - 10);
-
-  $('#top').style.top = headH + 'px';
-  $('#top').style.height = topH + 'px';
-
+  topEl.style.top = headH + 'px'; topEl.style.height = topH + 'px';
   gridEl.style.display = 'grid';
   gridEl.style.gridTemplateColumns = `repeat(${S.cols||10}, 1fr)`;
-
   const size = Math.min(innerWidth - 16, topH - 12);
-  gridEl.style.width = size + 'px';
-  gridEl.style.height = size + 'px';
+  gridEl.style.width = size + 'px'; gridEl.style.height = size + 'px';
 }
 addEventListener('resize', layout);
-if (visualViewport) visualViewport.addEventListener('resize', layout);
+visualViewport?.addEventListener('resize', layout);
 
-/* ========= letters & placement ========= */
+/* ======== Grid build (seeded if online) ======== */
 function allowedDirs(){
-  const d = [];
-  if (S.diff.dirs.includes('H')) d.push([0,1],[0,-1]);
-  if (S.diff.dirs.includes('V')) d.push([1,0],[-1,0]);
-  if (S.diff.dirs.includes('D')) d.push([1,1],[-1,-1],[1,-1],[-1,1]);
+  const d=[]; if(S.diff.dirs.includes('H')) d.push([0,1],[0,-1]);
+  if(S.diff.dirs.includes('V')) d.push([1,0],[-1,0]);
+  if(S.diff.dirs.includes('D')) d.push([1,1],[-1,-1],[1,-1],[-1,1]);
   return d;
 }
-const idx = (r,c)=> r*S.cols + c;
-const inb = (r,c)=> r>=0 && c>=0 && r<S.rows && c<S.cols;
+const idx=(r,c)=> r*S.cols+c;
+const inb=(r,c)=> r>=0&&c>=0&&r<S.rows&&c<S.cols;
 function buildEmpty(){ S.grid = Array(S.rows*S.cols).fill(''); }
 function tryPlace(word){
-  const W = word.text.toUpperCase();
-  const dirs = allowedDirs();
-  for (let attempt=0; attempt<220; attempt++){
-    const dir = dirs[(Math.random()*dirs.length)|0];
-    const len = W.length;
-    const r0 = (Math.random()*S.rows)|0, c0 = (Math.random()*S.cols)|0;
-    const r1 = r0 + dir[0]*(len-1), c1 = c0 + dir[1]*(len-1);
-    if (!inb(r1,c1)) continue;
+  const W = word.text.toUpperCase(), dirs = allowedDirs();
+  for (let attempt=0; attempt<260; attempt++){
+    const dir = dirs[(R()*dirs.length)|0];
+    const len=W.length, r0=(R()*S.rows)|0, c0=(R()*S.cols)|0;
+    const r1=r0+dir[0]*(len-1), c1=c0+dir[1]*(len-1);
+    if(!inb(r1,c1)) continue;
     let ok=true, path=[];
     for(let k=0;k<len;k++){
       const r=r0+dir[0]*k, c=c0+dir[1]*k, id=idx(r,c);
-      const ch=S.grid[id]; if (ch && ch!==W[k]){ ok=false; break; }
+      const ch=S.grid[id]; if(ch && ch!==W[k]){ ok=false; break; }
       path.push(id);
     }
     if(!ok) continue;
-    const placeStr = (S.diff.backwards===true) ? (Math.random()<.5? W : [...W].reverse().join(''))
-                    : (S.diff.backwards==='few' ? (Math.random()<.25? [...W].reverse().join('') : W)
-                    : (S.diff.backwards==='more'? (Math.random()<.5? [...W].reverse().join('') : W) : W));
-    for(let k=0;k<len;k++){ S.grid[path[k]] = placeStr[k]; }
+    // backwards policy
+    const back = S.diff.backwards;
+    const revChance = back===true ? 0.5 : back==='few' ? 0.25 : back==='more' ? 0.5 : 0;
+    const placeStr = (R()<revChance) ? [...W].reverse().join('') : W;
+    for(let k=0;k<len;k++) S.grid[path[k]] = placeStr[k];
     S.placed.push({text:W, path, takeIndex:word.takeIndex});
     return true;
   }
@@ -330,17 +297,14 @@ function tryPlace(word){
 }
 function fillRandom(){
   const LETTERS="EEEEEEEEEEEEEEEAAAAAAAIIIIIIIOOOOOONNNNRRRRRSSSSTTTTTDLLLLUGGBBCCMMPPFFHHVVWWYKJXQZ";
-  for(let i=0;i<S.grid.length;i++) if(!S.grid[i]) S.grid[i]=LETTERS[(Math.random()*LETTERS.length)|0];
+  for(let i=0;i<S.grid.length;i++) if(!S.grid[i]) S.grid[i]=LETTERS[(R()*LETTERS.length)|0];
 }
 
-/* ========= render ========= */
+/* ======== Render ======== */
 function renderGrid(){
-  gridEl.innerHTML = '';
-  for (let i=0;i<S.grid.length;i++){
-    const d = document.createElement('div');
-    d.className = 'cell';
-    d.textContent = S.grid[i];
-    d.dataset.idx = i;
+  gridEl.innerHTML='';
+  for(let i=0;i<S.grid.length;i++){
+    const d=document.createElement('div'); d.className='cell'; d.textContent=S.grid[i]; d.dataset.idx=i;
     gridEl.appendChild(d);
   }
   gridEl.style.gridTemplateColumns = `repeat(${S.cols||10}, 1fr)`;
@@ -352,154 +316,83 @@ function renderWordList(){
     row.innerHTML = w.text.toUpperCase().split('').map(ch=>`<span>${ch}</span>`).join('');
     wordsEl.appendChild(row);
   });
+  if(S.h2h){ document.querySelectorAll('#words .w').forEach(w=>w.classList.remove('active')); $('#w_'+S.wordIdx)?.classList.add('active'); }
 }
 
-/* ========= selection math ========= */
+/* ======== Selection ======== */
 function rcFromIdx(id){ return [(id/S.cols)|0, id%S.cols]; }
-function dirOf(a,b){
-  const [ar,ac]=rcFromIdx(a), [br,bc]=rcFromIdx(b);
+function dirOf(a,b){ const [ar,ac]=rcFromIdx(a), [br,bc]=rcFromIdx(b);
   const dr=Math.sign(br-ar), dc=Math.sign(bc-ac);
-  if(dr===0 && dc===0) return null;
-  if(dr!==0 && dc!==0 && Math.abs(br-ar)!==Math.abs(bc-ac)) return null;
-  return [dr,dc];
-}
-function cellsBetween(a,b){
-  const d=dirOf(a,b); if(!d) return null;
-  const [ar,ac]=rcFromIdx(a), [br,bc]=rcFromIdx(b);
-  const n=Math.max(Math.abs(br-ar), Math.abs(bc-ac))+1, out=[];
-  for(let k=0;k<n;k++){ const r=ar+d[0]*k, c=ac+d[1]*k; out.push(idx(r,c)); }
-  return out;
-}
+  if(dr===0&&dc===0) return null; if(dr!==0&&dc!==0 && Math.abs(br-ar)!==Math.abs(bc-ac)) return null;
+  return [dr,dc]; }
+function cellsBetween(a,b){ const d=dirOf(a,b); if(!d) return null;
+  const [ar,ac]=rcFromIdx(a), [br,bc]=rcFromIdx(b); const n=Math.max(Math.abs(br-ar),Math.abs(bc-ac))+1, out=[];
+  for(let k=0;k<n;k++){ const r=ar+d[0]*k, c=ac+d[1]*k; out.push(idx(r,c)); } return out; }
 function setSel(on,list){ for(const id of list){ gridEl.children[id]?.classList.toggle('sel',on); } }
 function wordFrom(list){ return list.map(i=>S.grid[i]).join(''); }
 function findPlacedByPath(list){
   const fwd=wordFrom(list), rev=wordFrom([...list].reverse());
   if (S.h2h){
-    const target=PUZZLE_BASE.words[S.wordIdx]?.text?.toUpperCase();
-    if (!target) return null;
-    if (fwd===target || rev===target) return S.placed.find(p=>p.text===target);
+    const target=PUZZLE_BASE.words[S.wordIdx].text.toUpperCase();
+    if (fwd===target || rev===target) return S.placed[S.wordIdx];
     return null;
   } else {
     return S.placed.find(p=>!S.found.has(p.text) && (p.text===fwd || p.text===rev));
   }
 }
 
-/* ========= hinting ========= */
+/* ======== Hints (Solo only) ======== */
 function showHint(){
   if (S.stage!=='search' || S.h2h) return;
   S.hintLock=true; setTimeout(()=>S.hintLock=false, 2600);
-  const pool=S.placed.filter(p=>!S.found.has(p.text));
-  const cand = pool[(Math.random()*pool.length)|0]; if (!cand) return;
-  const id = cand.path[cand.takeIndex ?? ((Math.random()*cand.path.length)|0)];
-  const cell = gridEl.children[id]; if (cell){ cell.classList.add('hint'); setTimeout(()=>cell.classList.remove('hint'),1400); }
+  const pool=S.placed.filter(p=>!S.found.has(p.text)); if(!pool.length) return;
+  const cand = pool[(R()*pool.length)|0];
+  const id = cand.path[cand.takeIndex ?? ((R()*cand.path.length)|0)];
+  const cell = gridEl.children[id]; if(cell){ cell.classList.add('hint'); setTimeout(()=>cell.classList.remove('hint'),1400); }
 }
-hintBtn.onclick = showHint;
+$('#hintBtn').onclick = showHint;
 
-/* ========= run content ========= */
+/* ======== Run content ======== */
 let CUR = { words:[], finalAnswer:'', unscrambleSecs:25 };
 function makeRun(){
   CUR.words = PUZZLE_BASE.words.map(w=>({...w}));
   CUR.finalAnswer = PUZZLE_BASE.finalAnswer;
-  const t = timersForMode(S.diff, S.h2h);
-  CUR.unscrambleSecs = t.unscrambleSecs;
+  CUR.unscrambleSecs = S.h2h ? null : (DIFFICULTY[S.diffName].unscrambleSecs);
 }
 
-/* ========= H2H helpers ========= */
-function updateActiveWordRow(){
-  if (!S.h2h) return;
-  document.querySelectorAll('#words .w').forEach(w=>w.classList.remove('active'));
-  const nextIdx = [...Array(CUR.words.length).keys()].find(i=>!S.claimed.has(i));
-  if (nextIdx != null){
-    S.wordIdx = nextIdx;
-    document.getElementById('w_'+nextIdx)?.classList.add('active');
-  }
-}
-
-/* ========= unified claim handler (local & remote) ========= */
-function handleClaim(wordIdx, byPid, opts={remote:false}){
-  if (S.claimed.has(wordIdx)) return;        // ignore dupes
-  S.claimed.add(wordIdx);
-
-  // Paint path
-  const placed = S.placed[wordIdx];
-  if (placed){
-    for (const id of placed.path){
-      const cell = gridEl.children[id];
-      if (cell){ cell.classList.remove('sel'); cell.classList.add('found'); }
-    }
-  }
-
-  // Row visuals
-  const row = document.getElementById('w_'+wordIdx);
-  if (row){
-    row.classList.add('done');
-    if (byPid === 'p2') row.style.borderColor = '#ff9aa9';
-    if (byPid === 'p1') row.style.borderColor = '#9affc7';
-  }
-
-  // Score: claimer gets points
-  let scorer = 0;
-  if (S.online){
-    const me = Net.me();
-    scorer = (me && byPid === me.pid) ? 0 : 1;
-  } else {
-    scorer = S.curP; // local alternating test
-  }
-  scoreWord((placed?.text?.length||5), scorer);
-
-  // Advance both sides to next target
-  const nextIdx = [...Array(CUR.words.length).keys()].find(i=>!S.claimed.has(i));
-  if (nextIdx != null){
-    S.wordIdx = nextIdx;
-    updateActiveWordRow();
-    if (!S.online) S.curP = 1 - S.curP; // local swap
-  } else {
-    if (!S.unscrambleStarted){
-      S.unscrambleStarted = true;
-      endSearchStartUnscramble();
-    }
-  }
-}
-
-/* ========= game setup ========= */
+/* ======== Build game ======== */
 function buildGame(){
   S.rows = S.diff.rows; S.cols = S.diff.cols;
   makeRun();
 
   S.grid.length=0; S.placed.length=0; S.found.clear(); S.circled.length=0;
-  S.claimed.clear(); S.unscrambleStarted=false;
-  //S.stage='search'; hudStage.textContent='Search';
-  const t = timersForMode(S.diff,S.h2h);
-  S.time = t.searchSecs || 0; S.running = false; hudTime.textContent='—';
-  S.idle=0; S.hintLock=false;
-  S.p=[0,0]; S.curP=0; S.wordIdx=0; updateScores();
+  S.stage='search'; hudTime.textContent='—';
+  S.idle=0; S.hintLock=false; S.p=[0,0]; S.curP=0; S.wordIdx=0; updateScores();
   $('#gridWrap').style.display='flex'; $('#unsTop').style.display='none';
-  $('#buzzRow').style.display = S.h2h ? 'flex' : 'none';
-  setOwner(null);
-  updateHudVisibility();
+  $('#buzzRow').style.display = S.h2h ? 'flex' : 'none'; setOwner(null);
 
-  for(let tries=0; tries<60; tries++){
-    buildEmpty(); S.placed.length=0;
-    let ok=true; for(const w of CUR.words){ if (!tryPlace(w)){ ok=false; break; } }
-    if (ok) break;
+  // use seeded RNG if online
+  if (S.online && !S.useSeed){
+    // fallback: give a seed if missing (should be set by room join/create)
+    setRngSeed((Math.random()*2_000_000_000)|0);
   }
-  fillRandom(); renderGrid(); renderWordList(); layout(); updateActiveWordRow();
+
+  for(let tries=0; tries<80; tries++){
+    buildEmpty(); S.placed.length=0;
+    let ok=true; for(const w of CUR.words){ if(!tryPlace(w)){ ok=false; break; } }
+    if(ok) break;
+  }
+  fillRandom(); renderGrid(); renderWordList(); layout();
 }
 
-/* ========= scoring ========= */
-function scoreWord(len, player){
-  const pts = Math.round(5 * len * (S.diff.mult||1));
-  if (S.h2h) S.p[player]+=pts; else S.p[0]+=pts; updateScores();
-}
-function scoreBonus(bonus, player){
-  const pts = Math.round(bonus * (S.diff.mult||1));
-  if (S.h2h) S.p[player]+=pts; else S.p[0]+=pts; updateScores();
-}
+/* ======== Scoring ======== */
 function updateScores(){ p1ScoreEl.textContent=S.p[0]; p2ScoreEl.textContent=S.p[1]; }
+function scoreWord(len, player){ const pts=Math.round(5*len*(S.diff.mult||1)); if(S.h2h) S.p[player]+=pts; else S.p[0]+=pts; updateScores(); }
+function scoreBonus(bonus, player){ const pts=Math.round(bonus*(S.diff.mult||1)); if(S.h2h) S.p[player]+=pts; else S.p[0]+=pts; updateScores(); }
 
-/* ========= selection & input ========= */
-function markInteraction(){ S.idle = 0; }
-['pointerdown','pointermove','keydown','click','touchstart'].forEach(ev => addEventListener(ev, markInteraction, {passive:true}));
+/* ======== Input (search) ======== */
+function markInteraction(){ S.idle=0; }
+['pointerdown','pointermove','keydown','click','touchstart'].forEach(ev=>addEventListener(ev,markInteraction,{passive:true}));
 
 gridEl.addEventListener('pointerdown', e=>{
   if (S.stage!=='search') return;
@@ -516,19 +409,26 @@ gridEl.addEventListener('pointermove', e=>{
   setSel(false,S.selPath); S.selPath=seq; setSel(true,S.selPath);
   e.preventDefault();
 },{passive:false});
-addEventListener('pointerup', e=>{
+addEventListener('pointerup', async e=>{
   if(!S.dragging) return; S.dragging=false;
   if(!S.selPath.length) return;
   const placed=findPlacedByPath(S.selPath);
   if(placed){
+    const wIdx = S.placed.findIndex(p=>p===placed);
     if (S.h2h){
-      const wIdx = S.placed.findIndex(p => p === placed);
-      const myPid = (S.online && Net.me && Net.me().pid) ? Net.me().pid : (S.curP === 0 ? 'p1' : 'p2');
-      // local optimistic apply
-      handleClaim(wIdx, myPid, { remote:false });
-      // broadcast if online
-      if (S.online && Net.me().roomId){
-        Net.signalFound(wIdx);
+      // local paint + score
+      awardWord(placed, S.curP);
+      // signal online (first write wins)
+      if (S.online && Net.me().roomId){ Net.signalFound(wIdx); }
+      // advance to next target (local H2H test flow)
+      S.wordIdx++;
+      if (S.wordIdx < CUR.words.length){
+        $('#w_'+(S.wordIdx-1))?.classList.add('done');
+        document.querySelectorAll('#words .w').forEach(w=>w.classList.remove('active'));
+        $('#w_'+S.wordIdx)?.classList.add('active');
+        S.curP = 1 - S.curP;
+      } else {
+        endSearchStartUnscramble();
       }
     } else {
       // SOLO
@@ -541,13 +441,18 @@ addEventListener('pointerup', e=>{
     }
     buzz(12);
   } else {
-    buzz([2,40,2]);
-    setSel(false,S.selPath);
+    buzz([2,40,2]); setSel(false,S.selPath);
   }
   S.selPath.length=0;
 });
 
-/* ========= H2H “buzz” (local test ownership for typing) ========= */
+/* ======== H2H awarding & owner ======== */
+function awardWord(placed, player){
+  for(const id of placed.path){ gridEl.children[id].classList.remove('sel'); gridEl.children[id].classList.add('found'); }
+  const wIdx = S.placed.findIndex(p=>p.text===placed.text);
+  $('#w_'+wIdx)?.classList.add('done');
+  scoreWord(placed.text.length, player);
+}
 $('#buzzP1').onclick = ()=> setOwner(0);
 $('#buzzP2').onclick = ()=> setOwner(1);
 function setOwner(p){
@@ -557,39 +462,37 @@ function setOwner(p){
   $('#buzzP2').classList.toggle('own', p===1);
 }
 
-/* ========= stage transition → Unscramble ========= */
+/* ======== Stage → Unscramble ======== */
 function endSearchStartUnscramble(){
-  // Build circled letters and reveal circles in rows
+  // compute circled letters NOW and inject circles
   S.circled = PUZZLE_BASE.words.map(w => w.text[w.takeIndex]).filter(Boolean);
   document.querySelectorAll('#words .w').forEach((row, i)=>{
-    const w = PUZZLE_BASE.words[i].text.toUpperCase();
-    const k = PUZZLE_BASE.words[i].takeIndex|0;
-    row.innerHTML = w.split('').map((ch, j)=> j===k ? `<span class="circ">${ch}</span>` : `<span>${ch}</span>`).join('');
+    const w = PUZZLE_BASE.words[i].text.toUpperCase(), k = PUZZLE_BASE.words[i].takeIndex|0;
+    row.innerHTML = w.split('').map((ch,j)=> j===k? `<span class="circ">${ch}</span>`:`<span>${ch}</span>`).join('');
     row.classList.add('allfound');
   });
 
   $('#gridWrap').style.display='none';
   $('#unsTop').style.display='flex';
-  hudStage.textContent='Unscramble'; S.stage='unscramble';
-  updateHudVisibility();
+  S.stage='unscramble';
 
   buildUnscramble();
-  const t = timersForMode(S.diff,S.h2h).unscrambleSecs;
-  S.time = t || 0; S.running = !!t; hudTime.textContent = S.running? Math.ceil(S.time) : '—';
+  S.time = (S.h2h ? 0 : (DIFFICULTY[S.diffName].unscrambleSecs||0));
+  S.running = !!S.time;
+  hudTime.textContent = S.running? Math.ceil(S.time) : '—';
   if (S.h2h) setOwner(S.curP);
 }
 
-/* ========= unscramble ========= */
-function shuffle(a){ for(let i=a.length-1;i>0;i--){ const j=(Math.random()*(i+1))|0; [a[i],a[j]]=[a[j],a[i]]; } return a; }
+/* ======== Unscramble ======== */
+function shuffle(a){ for(let i=a.length-1;i>0;i--){ const j=( (S.useSeed?Math.floor(R()*(i+1)) : (Math.random()*(i+1)) )|0); [a[i],a[j]]=[a[j],a[i]]; } return a; }
 function buildUnscramble(){
   const slots = $('#unsSlots'), bank = $('#unsBank'), msg = $('#unsMsg');
-  slots.innerHTML=''; bank.innerHTML=''; msg.textContent='';
-  S.input.length=0;
+  slots.innerHTML=''; bank.innerHTML=''; msg.textContent=''; S.input.length=0;
 
   const letters = [...S.circled];
   const dummies = S.diff.dummies|0;
   const pool="ETAOINSHRDLUCMWFGYPBVKJXQZ";
-  for(let i=0;i<dummies;i++) letters.push(pool[(Math.random()*pool.length)|0]);
+  for(let i=0;i<dummies;i++) letters.push(pool[(R()*pool.length)|0]);
   shuffle(letters);
 
   for (let i=0;i<PUZZLE_BASE.finalAnswer.length;i++){
@@ -608,14 +511,9 @@ function pickFromBank(i){
   const k = S.input.length; if (k >= PUZZLE_BASE.finalAnswer.length) return;
   S.input.push(btn.textContent);
   $('#unsSlots').children[k].textContent = btn.textContent;
-  btn.disabled = true; btn.style.opacity = .4;
-  buzz(8);
+  btn.disabled = true; btn.style.opacity = .4; buzz(8);
 }
-$('#unsClear').onclick = ()=>{
-  S.input.length=0;
-  for(const s of $('#unsSlots').children) s.textContent='';
-  for(const b of $('#unsBank').children){ b.disabled=false; b.style.opacity=1; }
-};
+$('#unsClear').onclick = ()=>{ S.input.length=0; for(const s of $('#unsSlots').children) s.textContent=''; for(const b of $('#unsBank').children){ b.disabled=false; b.style.opacity=1; } };
 $('#unsSubmit').onclick = ()=>{
   const guess = S.input.join('').toUpperCase();
   if (guess.length !== PUZZLE_BASE.finalAnswer.length){ setUnsMsg('Incomplete', false); buzz([2,40,2]); return; }
@@ -624,82 +522,158 @@ $('#unsSubmit').onclick = ()=>{
     const winner = S.h2h ? (S.owner ?? S.curP) : 0;
     scoreBonus(bonus, winner);
     setUnsMsg(`Correct! +${bonus} ⭐ to P${winner+1}`, true);
-    S.running=false; hudStage.textContent='Complete'; setOwner(null); buzz([10,40,10]);
-  } else {
-    setUnsMsg('Try again', false); buzz([2,40,2]);
-    if (S.h2h) setOwner(null);
-  }
+    S.running=false; setOwner(null); buzz([10,40,10]);
+  } else { setUnsMsg('Try again', false); buzz([2,40,2]); if (S.h2h) setOwner(null); }
 };
 function setUnsMsg(t, ok){ const el=$('#unsMsg'); el.textContent=t; el.style.color = ok? '#87f59f' : '#ff6b6b'; }
 
-/* ========= timers / tick ========= */
+/* ======== Tick ======== */
 function tick(now){
   if (!now) now=performance.now();
   const dt = S.last ? (now - S.last)/1000 : 0; S.last = now;
 
   if (S.stage==='search'){
     hudTime.textContent = '—';
-    if (!S.h2h && S.diff.hintAfter && !S.hintLock){
-      S.idle += dt; if (S.idle >= S.diff.hintAfter){ showHint(); S.idle=0; }
-    }
+    if (!S.h2h && S.diff.hintAfter && !S.hintLock){ S.idle += dt; if (S.idle >= S.diff.hintAfter){ showHint(); S.idle=0; } }
   } else if (S.stage==='unscramble'){
     if (!S.h2h && S.running){ S.time -= dt; if (S.time<=0){ S.time=0; S.running=false; setUnsMsg('Time!', false); } hudTime.textContent=Math.ceil(S.time); }
     else { hudTime.textContent='—'; }
   }
-
   requestAnimationFrame(tick);
 }
 
-/* ========= UI wiring ========= */
+/* ======== UI wiring ======== */
 $('#btnStart').onclick = ()=>{ buildGame(); tick(); };
-//$('#modeChip').onclick = ()=>{ setMode(!S.h2h); buildGame(); };
-//$('#diffChip').onclick = ()=>{
-//  const order = Object.keys(DIFFICULTY);
-//  const i = order.indexOf(S.diffName);
-//  const next = order[(i+1)%order.length];
-//  setDifficulty(next); buildGame();
-//};
-
-/* ========= boot ========= */
-setMode(false);
-setDifficulty('Easy');
-buildGame();
-layout();
-tick();
-
-/* ========= Settings modal ========= */
-const cfg = $('#cfg'), cfgMode = $('#cfgMode'), cfgDiff = $('#cfgDiff'), cfgTheme = $('#cfgTheme');
-$('#btnCfg').onclick = () => {
-  cfgMode.value = S.h2h ? 'h2h' : 'solo';
-  cfgDiff.value = S.diffName;
-  cfgTheme.value = (localStorage.getItem('ws_theme') || 'plum');
-  cfg.hidden = false;
+$('#btnCfg').onclick = ()=>{ // open modal with current state
+  $('#cfgMode').value = S.online? 'h2h_online' : (S.h2h? 'h2h_local':'solo');
+  $('#cfgDiff').value = S.diffName;
+  $('#cfgName').value = localStorage.getItem('war_name') || 'Player';
+  $('#cfg').hidden = false;
 };
-$('#cfgCancel').onclick = () => { cfg.hidden = true; };
-$('#cfgApply').onclick = () => {
-  const wantH2H = (cfgMode.value === 'h2h');
-  const wantDiff = cfgDiff.value;
-  const theme = cfgTheme.value;
-
-  setMode(wantH2H);
-  setDifficulty(wantDiff);
-  buildGame();
-
-  document.body.dataset.theme = theme;
-  localStorage.setItem('ws_theme', theme);
-  cfg.hidden = true;
+$('#cfgCancel').onclick = ()=> $('#cfg').hidden = true;
+$('#cfgApply').onclick = ()=>{
+  const mode = $('#cfgMode').value, diff = $('#cfgDiff').value, name = $('#cfgName').value.trim() || 'Player';
+  localStorage.setItem('war_name', name);
+  setMode(mode); setDifficulty(diff); if(!S.online) S.useSeed=false;
+  buildGame(); $('#cfg').hidden = true;
 };
-(function initTheme(){
-  const t = localStorage.getItem('ws_theme') || 'plum';
-  document.body.dataset.theme = t;
+
+/* ======== Supabase Network Layer (rooms / claims) ======== */
+const Net = (()=>{
+  const ROOM_ALPH='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  const makeRoomId = (n=6)=> Array.from({length:n},()=>ROOM_ALPH[(Math.random()*ROOM_ALPH.length)|0]).join('');
+  let roomId=null, pid=null, chClaims=null, chRoom=null;
+
+  async function fetchSnapshot(id){
+    const [r, p, c] = await Promise.all([
+      sb.from('rooms').select('*').eq('id', id).single(),
+      sb.from('room_players').select('*').eq('room_id', id),
+      sb.from('room_claims').select('*').eq('room_id', id)
+    ]);
+    if (r.error) throw r.error;
+    const foundBy={}; (c.data||[]).forEach(row=>{ foundBy[row.word_idx]=row.by_pid; });
+    return { room:r.data, players:p.data||[], foundBy };
+  }
+
+  async function createRoom(displayName){
+    const id = makeRoomId(), seed = (Math.random()*2_000_000_000)|0;
+    const e1 = await sb.from('rooms').insert({ id, seed, mode:'H2H', status:'lobby' });
+    if (e1.error) throw e1.error;
+    const e2 = await sb.from('room_players').insert({ room_id:id, pid:'p1', name:displayName });
+    if (e2.error) throw e2.error;
+    roomId=id; pid='p1'; return { roomId:id, seed, pid };
+  }
+
+  async function joinRoom(id, displayName){
+    const snap = await fetchSnapshot(id);
+    if(!snap.room) throw new Error('Room not found');
+    const hasP1 = snap.players.some(p=>p.pid==='p1');
+    const hasP2 = snap.players.some(p=>p.pid==='p2');
+    const myPid = hasP1 && !hasP2 ? 'p2' : (!hasP1 ? 'p1' : 'p2');
+    const up = await sb.from('room_players').upsert({ room_id:id, pid:myPid, name:displayName }, { onConflict:'room_id,pid' });
+    if (up.error) throw up.error;
+    roomId=id; pid=myPid;
+    return { roomId:id, seed:snap.room.seed, pid:myPid, foundBy:snap.foundBy };
+  }
+
+  async function setStatusPlaying(){ if(!roomId) return; await sb.from('rooms').update({status:'playing'}).eq('id',roomId); }
+  async function signalFound(wordIdx){
+    if (!roomId || !pid) return;
+    const res = await sb.from('room_claims').insert({ room_id:roomId, word_idx:wordIdx, by_pid:pid });
+    if (res.error && res.error.code!=='23505') console.warn('claim error', res.error);
+  }
+
+  async function subscribe(handlers){
+    chClaims = sb.channel('claims_'+roomId).on('postgres_changes',{
+      event:'INSERT', schema:'public', table:'room_claims', filter:`room_id=eq.${roomId}`
+    }, payload=>{
+      handlers?.onClaim?.(payload.new.word_idx, payload.new.by_pid);
+    }).subscribe();
+    chRoom = sb.channel('rooms_'+roomId).on('postgres_changes',{
+      event:'UPDATE', schema:'public', table:'rooms', filter:`id=eq.${roomId}`
+    }, payload=>{
+      handlers?.onRoomUpdate?.(payload.new);
+    }).subscribe();
+    const snap = await fetchSnapshot(roomId);
+    return snap;
+  }
+  async function leave(){ if(chClaims) await sb.removeChannel(chClaims); if(chRoom) await sb.removeChannel(chRoom); roomId=null; pid=null; }
+  const me = ()=>({roomId, pid});
+  return { createRoom, joinRoom, setStatusPlaying, signalFound, subscribe, leave, me };
 })();
-});
+
+/* ======== Online create/join buttons (in Settings) ======== */
+$('#btnCreateRoom').onclick = async ()=>{
+  const name = ($('#cfgName').value||'Player').trim() || 'Player';
+  try{
+    const { roomId, seed, pid } = await Net.createRoom(name);
+    setMode('h2h_online'); setRngSeed(seed); buildGame();
+    hudRoom.textContent = `${roomId} · ${pid.toUpperCase()}`; roomChip.style.display='flex';
+    $('#netStatus').textContent = `Room created. Share code: ${roomId}`;
+    await Net.setStatusPlaying();
+    const snap = await Net.subscribe({
+      onClaim: (idx, by)=> lockWordRemotely(idx, by),
+      onRoomUpdate: (room)=> { /* optional */ }
+    });
+    // hydrate claims if any
+    for (const [i, by] of Object.entries(snap.foundBy)) lockWordRemotely(+i, by);
+  }catch(err){ $('#netStatus').textContent = 'Create failed: '+err.message; }
+};
+$('#btnJoinRoom').onclick = async ()=>{
+  const name = ($('#cfgName').value||'Player').trim() || 'Player';
+  const code = prompt('Enter room code:')?.trim().toUpperCase();
+  if (!code) return;
+  try{
+    const { seed, pid, foundBy } = await Net.joinRoom(code, name);
+    setMode('h2h_online'); setRngSeed(seed); buildGame();
+    hudRoom.textContent = `${code} · ${pid.toUpperCase()}`; roomChip.style.display='flex';
+    $('#netStatus').textContent = `Joined ${code} as ${pid.toUpperCase()}`;
+    const snap = await Net.subscribe({
+      onClaim: (idx, by)=> lockWordRemotely(idx, by),
+      onRoomUpdate: (room)=> { /* optional */ }
+    });
+    // hydrate existing claims
+    for (const [i, by] of Object.entries(foundBy)) lockWordRemotely(+i, by);
+  }catch(err){ $('#netStatus').textContent = 'Join failed: '+err.message; }
+};
+
+/* ======== Apply remote claims safely ======== */
+function lockWordRemotely(wordIdx, byPid){
+  // Already painted? (idempotent)
+  const row = document.getElementById('w_'+wordIdx);
+  if (!row || row.classList.contains('done')) return;
+  // Paint path
+  const placed = S.placed[wordIdx]; if (placed){
+    for(const id of placed.path){ gridEl.children[id]?.classList.add('found'); gridEl.children[id]?.classList.remove('sel'); }
+  }
+  row.classList.add('done');
+  // Optional: tint for opponent (visual cue)
+  if (byPid === 'p2') row.style.borderColor = '#ff9aa9';
+  if (byPid === 'p1') row.style.borderColor = '#9affc7';
+}
+
+/* ======== Boot ======== */
+setMode('solo'); setDifficulty('Easy'); buildGame(); layout(); tick();
 </script>
 </body>
 </html>
-
-
-
-
-
-
