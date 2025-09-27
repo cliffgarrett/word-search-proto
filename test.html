@@ -48,7 +48,10 @@ html, body {
   font-family: system-ui, -apple-system, Segoe UI, Roboto, Inter, Helvetica, Arial, sans-serif;
 }
 
-html, body {  background: linear-gradient(-45deg in oklch, red, orange, green, blue, indigo, violet);
+html, body {
+  /* background: linear-gradient(-45deg, #2a003f, #4b0082, #7b2cbf, #6a0dad); */
+  /* background: linear-gradient(-45deg in oklch, red, orange, yellow, green, blue, indigo, violet); */
+  background: linear-gradient(-45deg in oklch, red, orange, green, blue, indigo, violet);
   
   background-size: 600% 600%;
   animation: driftGradient 120s ease infinite;
@@ -66,7 +69,7 @@ html, body {  background: linear-gradient(-45deg in oklch, red, orange, green, b
   .chip{pointer-events:auto;background:var(--chip);border:1px solid rgba(255,255,255,.12);
     backdrop-filter: blur(8px); border-radius:14px; padding:.35rem .6rem;
     display:flex; gap:.45rem; align-items:center; font-weight:700; white-space:nowrap}
-  .btn{cursor:pointer}
+  .btn{cursor:pointer; color: #FFFFFF}
   .pill{border-radius:999px; padding:.35rem .75rem}
 
   /* Top region (grid / unscramble swap) */
@@ -85,7 +88,7 @@ html, body {  background: linear-gradient(-45deg in oklch, red, orange, green, b
   /* Word list */
   #bottom{position:fixed; left:0; right:0; bottom:0; z-index:20;
     padding:.6rem .7rem calc(.6rem + var(--sab));
-    background:linear-gradient(to top, rgba(10,10,112,.5), rgba(10,10,120,.2) 50%, transparent);
+    background:linear-gradient(to top, rgba(10,10,12,.95), rgba(10,10,12,.7) 50%, transparent)}
   #words{display:grid; grid-template-columns:repeat(2, minmax(140px,1fr)); gap:.4rem .6rem}
   .w{background:#1c222b;border:1px solid rgba(255,255,255,.12); border-radius:.7rem;
      padding:.42rem .6rem; font-weight:800; letter-spacing:.06em; display:flex; gap:.4rem; align-items:center}
@@ -699,6 +702,15 @@ $('#cfgApply').onclick = () => {
 </body>
 
 </html>
+
+
+
+
+
+
+
+
+
 
 
 
