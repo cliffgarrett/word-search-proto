@@ -254,7 +254,7 @@ function updateHudVisibility(){
 function setMode(h2h){
   S.h2h = h2h;
   document.body.classList.toggle('h2h', h2h);
-  hudMode.textContent = h2h ? 'H2H (local test)' : 'Solo';
+  //hudMode.textContent = h2h ? 'H2H (local test)' : 'Solo';
   if (h2h){
     hintBtn.style.display = 'none';
     S.diff.hintAfter = null;   // no idle hints in competition
@@ -697,6 +697,7 @@ $('#cfgApply').onclick = () => {
 </script>
 </body>
 </html>
+
 
 
 
