@@ -104,7 +104,7 @@ const sb = window.supabase.createClient(SB_URL, SB_KEY);
   .chipL{background:#273141; border:1px solid rgba(255,255,255,.18);
     border-radius:.55rem; padding:.55rem .85rem; font-weight:900; cursor:pointer; color:#fff}
   #buzzRow{display:none; gap:.5rem; margin-top:.6rem; align-items:center; flex-wrap:wrap; justify-content:center}
-  .buzz{background:#1e232a;border:1px solid rgba(255,255,255,.18); border-radius:.8rem;
+  .buzz{background:#1e232a;border:1px solid rgba(255,255,255,.18); border-radius:.8rem;display:none;
     padding:.55rem .9rem; font-weight:900; cursor:pointer}
   .own{outline:2px solid var(--accent);}
 
@@ -132,7 +132,7 @@ const sb = window.supabase.createClient(SB_URL, SB_KEY);
   <header>
     <div id="btnStart" class="chip btn">▶ Start</div>
     <div id="btnCfg" class="chip btn">⚙️ Settings</div>
-    <div id="hintBtn" class="chip btn" style="display:none">💡 Hint</div>
+    <div id="hintBtn" class="chip btn">💡 Hint</div>
     <div id="timeChip" class="chip">⏱ <b id="hudTime">—</b> s</div>
     <div id="roomChip" class="chip" style="display:none">Room: <b id="hudRoom">—</b></div>
     <div class="chip pill">P1 ⭐ <b id="p1Score">0</b></div>
@@ -725,6 +725,7 @@ setMode('solo'); setDifficulty('Easy'); buildGame(); layout(); tick();
 </script>
 </body>
 </html>
+
 
 
 
