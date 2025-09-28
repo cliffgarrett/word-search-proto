@@ -99,7 +99,16 @@ const sb = window.supabase.createClient(SB_URL, SB_KEY);
   .h2h #words{grid-template-columns:1fr}
   .h2h .w{display:none}
   .h2h .w.active{display:flex}
+:root {
+  --p1: #7aff9f;   /* greenish tint */
+  --p2: #ff9aa9;   /* reddish tint */
+}
 
+.cell.p1found { background: var(--p1); color:#000; }
+.cell.p2found { background: var(--p2); color:#000; }
+
+.w.p1found { border-color: var(--p1); }
+.w.p2found { border-color: var(--p2); }
   /* Unscramble */
   #unsTop{display:none; height:100%; padding:.6rem .7rem;
     display:flex; flex-direction:column; align-items:center; justify-content:center}
@@ -658,6 +667,36 @@ function tick(now){
 
   requestAnimationFrame(tick);
 }
+
+// Paint a whole word (grid path + list row) with a player tint class.
+function applyTintForWord(wordIdx, className){
+  const placed = S.placed[wordIdx];
+  if (placed){
+    for (const id of placed.path){
+      const cell = gridEl.children[id];
+      if (cell){ cell.classList.add('found', className); cell.classList.remove('sel'); }
+    }
+  }
+  const row = document.getElementById('w_'+wordIdx);
+  if (row) row.classList.add('done', className);
+}
+
+// Handle realtime claim (online H2H). Safe to include even if you’re not using online yet.
+function lockWordRemotely(wordIdx, byPid){
+  const row = document.getElementById('w_'+wordIdx);
+  if (!row || row.classList.contains('done')) return;
+
+  const placed = S.placed[wordIdx];
+  const claimClass = (byPid === 'p1') ? 'p1found' : 'p2found';
+
+  if (placed){
+    for (const id of placed.path){
+      const cell = gridEl.children[id];
+      if (cell) { cell.classList.add('found', claimClass); cell.classList.remove('sel'); }
+    }
+  }
+  row.classList.add('done', claimClass);
+}
 /* ========= UI wiring ========= */
 $('#btnStart').onclick = ()=>{ buildGame(); tick(); };
 $('#btnCfg').onclick = ()=>{
@@ -769,6 +808,7 @@ setMode('solo'); setDifficulty('Easy'); buildGame(); layout(); tick();
 </script>
 </body>
 </html>
+
 
 
 
