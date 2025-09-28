@@ -432,6 +432,7 @@ function handleClaim(wIdx, byPid){
 
   // paint grid path
   const placed = S.placed[wIdx];
+  if (!S.h2h && placed?.text) S.found.add(placed.text);
   if (placed){
     for(const id of placed.path){
       const cell = gridEl.children[id];
@@ -735,6 +736,7 @@ setMode('solo'); setDifficulty('Easy'); buildGame(); layout(); tick();
 </script>
 </body>
 </html>
+
 
 
 
