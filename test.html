@@ -46,6 +46,13 @@ const sb = window.supabase.createClient(SB_URL, SB_KEY);
     font-weight:800;font-size:1.15rem; letter-spacing:.02em; position:relative}
   .cell.sel{outline:3px solid #5fb5ff; outline-offset:2px; background:#f5f9ff}
   .cell.found{background:#d7ffe4}
+/* Enlarge touch/click target without changing visual spacing */
+.cell { position: relative; }
+.cell::before {
+  content: "";
+  position: absolute;
+  inset: -8px;   /* grow hit area by 8px on all sides */
+}
   .cell.hint{ outline:3px dashed #49e68b; animation: hintPulse 1.1s ease-in-out 2; }
   @keyframes hintPulse{
   0% {
@@ -736,6 +743,7 @@ setMode('solo'); setDifficulty('Easy'); buildGame(); layout(); tick();
 </script>
 </body>
 </html>
+
 
 
 
