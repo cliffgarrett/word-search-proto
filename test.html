@@ -217,7 +217,7 @@ const hudTime=$('#hudTime'), p1ScoreEl=$('#p1Score'), p2ScoreEl=$('#p2Score'),
       gridEl=$('#grid'), wordsEl=$('#words'), hintBtn=$('#hintBtn'),
       timeChip=$('#timeChip'), p2Chip=$('#p2Chip'), roomChip=$('#roomChip'), hudRoom=$('#hudRoom');
 const buzz = pat => ('vibrate' in navigator) && navigator.vibrate(pat);
-
+  
 /* ========= difficulty & base puzzle ========= */
 const DIFFICULTY = {
   Easy:   { rows:10, cols:10, dirs:['H','V'],            backwards:false, words:6, searchSecs:null, hintAfter:8,  unscrambleSecs:20, dummies:0, mult:0.9, showHintBtn:true },
@@ -419,6 +419,11 @@ function showHint(){
 }
 hintBtn.onclick = showHint;
 
+function refreshHintVisibility() {
+  // show only in SOLO + SEARCH stage + this difficulty actually has hints
+  const canShow = !S.h2h && S.stage === 'search' && DIFFICULTY[S.diffName].showHintBtn;
+  hintBtn.style.display = canShow ? 'flex' : 'none';
+}
 /* ========= run content ========= */
 let CUR = { words:[], finalAnswer:'', unscrambleSecs:25 };
 function makeRun(){
@@ -502,6 +507,7 @@ function buildGame(){
     if(ok) break;
   }
   fillRandom(); renderGrid(); renderWordList(); layout();
+  refreshHintVisibility();
 }
 
 /* ========= input (search) ========= */
@@ -566,6 +572,8 @@ function endSearchStartUnscramble(){
   $('#gridWrap').style.display='none';
   $('#unsTop').style.display='flex';
   S.stage='unscramble';
+
+  refreshHintVisibility();        // ← add this
 
   buildUnscramble();
   S.time = (S.h2h ? 0 : (DIFFICULTY[S.diffName].unscrambleSecs||0));
@@ -743,6 +751,7 @@ setMode('solo'); setDifficulty('Easy'); buildGame(); layout(); tick();
 </script>
 </body>
 </html>
+
 
 
 
