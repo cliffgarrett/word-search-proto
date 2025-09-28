@@ -627,19 +627,37 @@ function setUnsMsg(t, ok){ const el=$('#unsMsg'); el.textContent=t; el.style.col
 
 /* ========= tick ========= */
 function tick(now){
-  if (!now) now=performance.now();
+  if (!now) now = performance.now();
   const dt = S.last ? (now - S.last)/1000 : 0; S.last = now;
 
-  if (S.stage==='search'){
-    hudTime.textContent='—';
-    if (!S.h2h && S.diff.hintAfter && !S.hintLock){ S.idle+=dt; if(S.idle>=S.diff.hintAfter){ showHint(); S.idle=0; } }
-  } else if (S.stage==='unscramble'){
-    if (!S.h2h && S.running){ S.time -= dt; if (S.time<=0){ S.time=0; S.running=false; setUnsMsg('Time!', false); } hudTime.textContent=Math.ceil(S.time); }
-    else { hudTime.textContent='—'; }
+  if (S.stage === 'search') {
+    // 🚫 never show timer in search
+    hudTime.textContent = '—';
+
+    // optional idle hint
+    if (!S.h2h && S.diff.hintAfter && !S.hintLock) {
+      S.idle += dt;
+      if (S.idle >= S.diff.hintAfter) {
+        showHint();
+        S.idle = 0;
+      }
+    }
+  } 
+  else if (S.stage === 'unscramble') {
+    if (!S.h2h && S.running) {
+      S.time -= dt;
+      if (S.time <= 0) { 
+        S.time = 0; S.running = false; 
+        setUnsMsg('Time!', false); 
+      }
+      hudTime.textContent = Math.ceil(S.time);
+    } else {
+      hudTime.textContent = '—';
+    }
   }
+
   requestAnimationFrame(tick);
 }
-
 /* ========= UI wiring ========= */
 $('#btnStart').onclick = ()=>{ buildGame(); tick(); };
 $('#btnCfg').onclick = ()=>{
@@ -751,6 +769,7 @@ setMode('solo'); setDifficulty('Easy'); buildGame(); layout(); tick();
 </script>
 </body>
 </html>
+
 
 
 
