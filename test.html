@@ -393,12 +393,22 @@ function findPlacedByPath(list){
 
 /* ========= hints (solo only) ========= */
 function showHint(){
-  if (S.stage!=='search' || S.h2h) return;
-  S.hintLock=true; setTimeout(()=>S.hintLock=false, 2600);
-  const pool=S.placed.filter(p=>!S.found.has(p.text)); if(!pool.length) return;
-  const cand = pool[(R()*pool.length)|0];
-  const id = cand.path[cand.takeIndex ?? ((R()*cand.path.length)|0)];
-  const cell = gridEl.children[id]; if(cell){ cell.classList.add('hint'); setTimeout(()=>cell.classList.remove('hint'),1400); }
+  if (S.stage !== 'search' || S.h2h) return;          // Solo only
+  S.hintLock = true; setTimeout(()=> S.hintLock = false, 2600);
+
+  // only words not yet claimed
+  const pool = S.placed
+    .map((p, i) => ({ p, i }))
+    .filter(({ i }) => !S.claimed.has(i));
+  if (!pool.length) return;
+
+  const pick = pool[(R() * pool.length) | 0].p;
+  const id = pick.path[pick.takeIndex ?? ((R() * pick.path.length) | 0)];
+  const cell = gridEl.children[id];
+  if (cell){
+    cell.classList.add('hint');
+    setTimeout(()=> cell.classList.remove('hint'), 1400);
+  }
 }
 hintBtn.onclick = showHint;
 
@@ -725,6 +735,7 @@ setMode('solo'); setDifficulty('Easy'); buildGame(); layout(); tick();
 </script>
 </body>
 </html>
+
 
 
 
