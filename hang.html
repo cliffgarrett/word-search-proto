@@ -1,0 +1,221 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+<title>Word-a-Roo — Hangman Prototype (R0)</title>
+<style>
+  :root{ --fg:#e9eef4; --bg:#0f1011; --chip:rgba(20,20,22,.72); --sab:env(safe-area-inset-bottom,0px);
+         --ok:#87f59f; --bad:#ff6b6b; --accent:#7aa7ff }
+  html,body{margin:0;height:100%;color:var(--fg);font-family:system-ui,-apple-system,Segoe UI,Roboto,Inter,Helvetica,Arial,sans-serif}
+
+  /* drifting gradient (matches your style) */
+  html, body {
+    background: linear-gradient(-45deg in oklch, red, orange, green, blue, indigo, violet);
+    background-size: 600% 600%;
+    animation: driftGradient 120s ease infinite;
+  }
+  @keyframes driftGradient { 0%{background-position:0% 0%} 50%{background-position:100% 100%} 100%{background-position:0% 0%} }
+
+  /* chips/buttons (your look) */
+  header{position:fixed;left:0;right:0;top:0;display:flex;gap:.5rem .6rem;flex-wrap:wrap;
+         align-items:center;padding:.55rem .7rem;z-index:30;pointer-events:none}
+  .chip{pointer-events:auto;background:var(--chip);border:1px solid rgba(255,255,255,.12);
+        backdrop-filter: blur(8px); border-radius:14px; padding:.35rem .6rem;
+        display:flex; gap:.45rem; align-items:center; font-weight:700; white-space:nowrap}
+  .btn{cursor:pointer;color:#fff}
+  .pill{border-radius:999px;padding:.35rem .75rem}
+
+  /* layout */
+  #wrap{position:fixed;inset:0;display:flex;flex-direction:column}
+  #stage{position:fixed;left:0;right:0;top:0;bottom:0;display:flex;align-items:center;justify-content:center;padding-top:64px}
+  #panel{width:min(96vw,720px);display:grid;grid-template-columns:1fr;gap:12px;align-items:center;justify-items:center}
+
+  /* word slots + status */
+  #word{display:flex;gap:.45rem;flex-wrap:wrap;justify-content:center}
+  .slot{min-width:2ch;height:2.7rem;border-bottom:3px solid rgba(255,255,255,.3);
+        display:flex;align-items:center;justify-content:center;font-weight:900;font-size:1.35rem}
+  .slot.filled{border-bottom-color:rgba(255,255,255,.12)}
+  #status{min-height:1.2rem;opacity:.9}
+
+  /* alphabet */
+  #alpha{display:flex;flex-wrap:wrap;gap:.35rem;justify-content:center}
+  .key{background:#273141;border:1px solid rgba(255,255,255,.18);border-radius:.55rem;
+       padding:.45rem .6rem;font-weight:900;cursor:pointer;color:#fff;user-select:none}
+  .key.used{opacity:.35;pointer-events:none}
+  .key.hit{background:#2e6e48}
+  .key.miss{background:#5a2b2b}
+
+  /* svg hangman */
+  #hang{width:min(70vw,360px);height:auto}
+  .line{stroke:#e9eef4;stroke-width:6;stroke-linecap:round;fill:none;opacity:.85}
+  .piece{opacity:0;transition:opacity .25s ease}
+
+  /* safe-area for bottom info if you add it later */
+  #bottomPad{height:calc(8px + var(--sab))}
+</style>
+</head>
+<body>
+<div id="wrap">
+  <header>
+    <div class="chip pill">🪢 Hangman (prototype)</div>
+    <div id="btnNew" class="chip btn" title="Refresh also starts a new word">↻ New word</div>
+    <div id="chipStrikes" class="chip">Strikes: <b id="strikes">0</b>/6</div>
+  </header>
+
+  <div id="stage">
+    <div id="panel">
+      <!-- SVG gallows + figure -->
+      <svg id="hang" viewBox="0 0 220 260" aria-hidden="true">
+        <!-- base + post + beam + rope -->
+        <line class="line" x1="10" y1="250" x2="210" y2="250"/>
+        <line class="line" x1="50" y1="250" x2="50" y2="20"/>
+        <line class="line" x1="50" y1="20"  x2="155" y2="20"/>
+        <line class="line" x1="155" y1="20" x2="155" y2="50"/>
+        <!-- pieces (6 strikes) -->
+        <circle id="p1" class="line piece" cx="155" cy="75" r="20"/>           <!-- head -->
+        <line id="p2" class="line piece" x1="155" y1="95" x2="155" y2="150"/>  <!-- body -->
+        <line id="p3" class="line piece" x1="155" y1="110" x2="130" y2="135"/> <!-- arm L -->
+        <line id="p4" class="line piece" x1="155" y1="110" x2="180" y2="135"/> <!-- arm R -->
+        <line id="p5" class="line piece" x1="155" y1="150" x2="135" y2="190"/> <!-- leg L -->
+        <line id="p6" class="line piece" x1="155" y1="150" x2="175" y2="190"/> <!-- leg R -->
+      </svg>
+
+      <!-- word slots -->
+      <div id="word" aria-live="polite"></div>
+
+      <!-- status line -->
+      <div id="status"></div>
+
+      <!-- alphabet -->
+      <div id="alpha" aria-label="letter keyboard"></div>
+
+      <div id="bottomPad"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  const $ = s => document.querySelector(s);
+  const wordEl = $('#word'), alphaEl = $('#alpha'),
+        strikesEl = $('#strikes'), statusEl = $('#status');
+
+  // Small starter bank (you can swap for categories later)
+  const WORDS = [
+    'PICNIC','BANANA','RADIO','ICING','CANDY','SKIRT','SCALE',
+    'KITTEN','PUZZLE','JAZZ','PYTHON','VIOLET','ORANGE','NEBULA'
+  ];
+
+  // Game state
+  const S = {
+    answer: '',                       // target word
+    guessed: new Set(),               // letters guessed
+    strikes: 0, maxStrikes: 6,
+    done: false
+  };
+
+  function choice(arr){ return arr[(Math.random()*arr.length)|0]; }
+
+  function newGame(){
+    // pick a random word
+    S.answer = choice(WORDS).toUpperCase();
+    S.guessed.clear(); S.strikes = 0; S.done = false;
+    strikesEl.textContent = S.strikes;
+    statusEl.textContent = '';
+    // reset svg pieces
+    for (let i=1;i<=6;i++) $('#p'+i).style.opacity = 0;
+    buildWordSlots();
+    buildKeyboard();
+  }
+
+  function buildWordSlots(){
+    wordEl.innerHTML = '';
+    for (const ch of S.answer){
+      const d = document.createElement('div');
+      d.className = 'slot';
+      // pre-fill if guessed (none at start)
+      if (S.guessed.has(ch)){ d.textContent = ch; d.classList.add('filled'); }
+      wordEl.appendChild(d);
+    }
+    renderSlots();
+  }
+
+  function renderSlots(){
+    const slots = Array.from(wordEl.children);
+    for (let i=0;i<S.answer.length;i++){
+      const ch = S.answer[i];
+      const s = slots[i];
+      if (S.guessed.has(ch)){ s.textContent = ch; s.classList.add('filled'); }
+      else { s.textContent = ''; s.classList.remove('filled'); }
+    }
+  }
+
+  function buildKeyboard(){
+    const A = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
+    alphaEl.innerHTML = '';
+    A.forEach(ch => {
+      const b = document.createElement('button');
+      b.className = 'key';
+      b.textContent = ch;
+      b.onclick = () => guess(ch, b);
+      alphaEl.appendChild(b);
+    });
+  }
+
+  function guess(ch, btn){
+    if (S.done || S.guessed.has(ch)) return;
+    S.guessed.add(ch);
+
+    const inWord = S.answer.includes(ch);
+    if (btn){
+      btn.classList.add('used', inWord ? 'hit' : 'miss');
+      btn.disabled = true;
+    }
+
+    if (inWord){
+      renderSlots();
+      // Win?
+      const allRevealed = S.answer.split('').every(c => S.guessed.has(c));
+      if (allRevealed){
+        S.done = true;
+        statusEl.style.color = 'var(--ok)';
+        statusEl.textContent = 'Nice! You solved it 🎉';
+        // (optional confetti later)
+      }
+    } else {
+      S.strikes++;
+      strikesEl.textContent = S.strikes;
+      // reveal next piece
+      const piece = $('#p'+S.strikes);
+      if (piece) piece.style.opacity = 1;
+
+      if (S.strikes >= S.maxStrikes){
+        S.done = true;
+        statusEl.style.color = 'var(--bad)';
+        statusEl.textContent = `Out of tries — it was “${S.answer}”`;
+        // disable remaining keys
+        alphaEl.querySelectorAll('.key:not(.used)').forEach(k=>{k.classList.add('used');k.disabled=true;});
+      }
+    }
+  }
+
+  // Keyboard input (optional convenience)
+  addEventListener('keydown', (e)=>{
+    if (S.done) return;
+    const k = e.key.toUpperCase();
+    if (k.length===1 && k>='A' && k<='Z'){
+      const btn = Array.from(alphaEl.children).find(b => b.textContent===k);
+      if (btn && !btn.disabled) guess(k, btn);
+    }
+  }, {passive:true});
+
+  // New word button (also happens on refresh)
+  $('#btnNew').onclick = () => newGame();
+
+  // Start immediately
+  newGame();
+})();
+</script>
+</body>
+</html>
