@@ -95,19 +95,20 @@ const sb = window.supabase.createClient(SB_URL, SB_KEY);
   .circ{display:inline-flex;align-items:center;justify-content:center;
     width:1.35em;height:1.35em;border-radius:999px;border:2px solid var(--accent);font-weight:900}
 
-:root{
-  --p1:#7aff9f;
-  --p2:#ff9aa9;
+  /* H2H: show one target word (local/online) */
+  .h2h #words{grid-template-columns:1fr}
+  .h2h .w{display:none}
+  .h2h .w.active{display:flex}
+:root {
+  --p1: #7aff9f;   /* greenish tint */
+  --p2: #ff9aa9;   /* reddish tint */
 }
 
-/* grid cells */
-.cell.found.p1found { background: var(--p1) !important; color:#000; }
-.cell.found.p2found { background: var(--p2) !important; color:#000; }
+.cell.p1found { background: var(--p1); color:#000; }
+.cell.p2found { background: var(--p2); color:#000; }
 
-/* word-list rows */
-.w.done.p1found { border-color: var(--p1) !important; box-shadow: 0 0 0 2px color-mix(in oklab, var(--p1) 60%, transparent); }
-.w.done.p2found { border-color: var(--p2) !important; box-shadow: 0 0 0 2px color-mix(in oklab, var(--p2) 60%, transparent); }
-
+.w.p1found { border-color: var(--p1); }
+.w.p2found { border-color: var(--p2); }
   /* Unscramble */
   #unsTop{display:none; height:100%; padding:.6rem .7rem;
     display:flex; flex-direction:column; align-items:center; justify-content:center}
@@ -818,8 +819,6 @@ setMode('solo'); setDifficulty('Easy'); buildGame(); layout(); tick();
 </script>
 </body>
 </html>
-
-
 
 
 
