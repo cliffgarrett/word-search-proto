@@ -288,6 +288,9 @@ function setMode(kind){
   p2Chip.classList.toggle('hide', !S.h2h);
   // Room chip only online
   roomChip.style.display = S.online ? 'flex' : 'none';
+  const name = localStorage.getItem('war_name') || 'You';
+  document.querySelector('.pill')?.firstChild.nodeValue =
+    `${S.h2h ? 'P1' : name} ⭐ `;
 }
 function setDifficulty(name){ S.diffName = name; S.diff = DIFFICULTY[name]; }
 
@@ -433,6 +436,11 @@ function refreshHintVisibility() {
   const canShow = !S.h2h && S.stage === 'search' && DIFFICULTY[S.diffName].showHintBtn;
   hintBtn.style.display = canShow ? 'flex' : 'none';
 }
+function refreshTimerChip(){
+  const show = (!S.h2h && S.stage === 'unscramble' && !!S.time);
+  document.getElementById('timeChip')?.classList.toggle('hide', !show);
+}
+  
 /* ========= run content ========= */
 let CUR = { words:[], finalAnswer:'', unscrambleSecs:25 };
 function makeRun(){
@@ -502,6 +510,7 @@ function buildGame(){
   S.claimed.clear(); S.unscrambleStarted=false;
   S.stage='search'; hudTime.textContent='—';
   S.idle=0; S.hintLock=false; S.p=[0,0]; S.curP=0; updateScores();
+  refreshTimerChip();
   $('#gridWrap').style.display='flex'; $('#unsTop').style.display='none';
   $('#buzzRow').style.display = S.h2h ? 'flex' : 'none'; setOwner(null);
 
@@ -581,12 +590,12 @@ function endSearchStartUnscramble(){
   $('#gridWrap').style.display='none';
   $('#unsTop').style.display='flex';
   S.stage='unscramble';
-
   refreshHintVisibility();        // ← add this
 
   buildUnscramble();
   S.time = (S.h2h ? 0 : (DIFFICULTY[S.diffName].unscrambleSecs||0));
   S.running = !!S.time;
+  refreshTimerChip();
   hudTime.textContent = S.running? Math.ceil(S.time) : '—';
   if (S.h2h) setOwner(S.curP);
 }
@@ -808,6 +817,7 @@ setMode('solo'); setDifficulty('Easy'); buildGame(); layout(); tick();
 </script>
 </body>
 </html>
+
 
 
 
