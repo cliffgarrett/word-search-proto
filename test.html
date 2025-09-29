@@ -96,19 +96,19 @@ const sb = window.supabase.createClient(SB_URL, SB_KEY);
     width:1.35em;height:1.35em;border-radius:999px;border:2px solid var(--accent);font-weight:900}
 
   /* H2H: show one target word (local/online) */
-  .h2h #words{grid-template-columns:1fr}
-  .h2h .w{display:none}
-  .h2h .w.active{display:flex}
-:root {
-  --p1: #7aff9f;   /* greenish tint */
-  --p2: #ff9aa9;   /* reddish tint */
+:root{
+  --p1:#7aff9f;
+  --p2:#ff9aa9;
 }
 
-.cell.p1found { background: var(--p1); color:#000; }
-.cell.p2found { background: var(--p2); color:#000; }
+/* grid cells */
+.cell.found.p1found { background: var(--p1) !important; color:#000; }
+.cell.found.p2found { background: var(--p2) !important; color:#000; }
 
-.w.p1found { border-color: var(--p1); }
-.w.p2found { border-color: var(--p2); }
+/* word-list rows */
+.w.done.p1found { border-color: var(--p1) !important; box-shadow: 0 0 0 2px color-mix(in oklab, var(--p1) 60%, transparent); }
+.w.done.p2found { border-color: var(--p2) !important; box-shadow: 0 0 0 2px color-mix(in oklab, var(--p2) 60%, transparent); }
+  
   /* Unscramble */
   #unsTop{display:none; height:100%; padding:.6rem .7rem;
     display:flex; flex-direction:column; align-items:center; justify-content:center}
@@ -140,6 +140,11 @@ const sb = window.supabase.createClient(SB_URL, SB_KEY);
   #cfg .actions{ display:flex; justify-content:space-between; gap:.5rem; margin-top:.9rem; flex-wrap:wrap }
   #cfg .actions .left, #cfg .actions .right { display:flex; gap:.5rem; flex-wrap:wrap }
 
+  /* Only show the current target word in H2H */
+body.h2h #words .w { display: none; }
+body.h2h #words .w.active { display: flex; }
+  
+  
   .hide{display:none!important}
 </style>
 </head>
@@ -527,6 +532,7 @@ function buildGame(){
     if(ok) break;
   }
   fillRandom(); renderGrid(); renderWordList(); layout();
+  updateActiveWordRow():
   refreshHintVisibility();
 }
 
@@ -577,6 +583,7 @@ function setOwner(p){
   $('#ownerMsg').textContent = (p==null) ? '' : `P${p+1} typing…`;
   $('#buzzP1').classList.toggle('own', p===0);
   $('#buzzP2').classList.toggle('own', p===1);
+updateActiveWordRow():
 }
 
 /* ========= stage → unscramble ========= */
@@ -819,6 +826,7 @@ setMode('solo'); setDifficulty('Easy'); buildGame(); layout(); tick();
 </script>
 </body>
 </html>
+
 
 
 
