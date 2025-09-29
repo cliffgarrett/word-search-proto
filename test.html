@@ -289,8 +289,7 @@ function setMode(kind){
   // Room chip only online
   roomChip.style.display = S.online ? 'flex' : 'none';
   const name = localStorage.getItem('war_name') || 'You';
-  document.querySelector('.pill')?.firstChild.nodeValue =
-    `${S.h2h ? 'P1' : name} ⭐ `;
+  document.querySelector('.pill')?.firstChild.nodeValue = `${S.h2h ? 'P1' : name} ⭐ `;
 }
 function setDifficulty(name){ S.diffName = name; S.diff = DIFFICULTY[name]; }
 
@@ -817,6 +816,7 @@ setMode('solo'); setDifficulty('Easy'); buildGame(); layout(); tick();
 </script>
 </body>
 </html>
+
 
 
 
