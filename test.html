@@ -3,145 +3,116 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-<title>Word-a-Roo — Rev R6-H2H-Supa-01</title>
+<title>Word-a-Roo — R7 H2H Scoring + Tint</title>
 
 <!-- Supabase client -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
-// ⬇️ fill these with your project details
+// ⬇️ put YOUR values here
 const SB_URL = 'https://tootcjgayycxgazikjtx.supabase.co';
 const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRvb3RjamdheXljeGdhemlranR4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg5NDQwMzIsImV4cCI6MjA3NDUyMDAzMn0.yTi_KNNoFuJtvDS1aH0NYZf3UMkTooBwjaZtzdM2ypY';
 const sb = window.supabase.createClient(SB_URL, SB_KEY);
 </script>
 
 <style>
-  :root{ --fg:#e9eef4; --bg:#0f1011; --chip:rgba(20,20,22,.72); --sab:env(safe-area-inset-bottom,0px);
-         --ok:#87f59f; --bad:#ff6b6b; --accent:#7aa7ff; }
-  html,body{margin:0;height:100%;background:var(--bg);color:var(--fg);
-    font-family:system-ui,-apple-system,Segoe UI,Roboto,Inter,Helvetica,Arial,sans-serif;}
-  /* drifting gradient background */
-  html, body {
-    background: linear-gradient(-45deg in oklch, red, orange, green, blue, indigo, violet);
-    background-size: 600% 600%;
-    animation: driftGradient 120s ease infinite;
-  }
-  @keyframes driftGradient { 0%{background-position:0% 0%} 50%{background-position:100% 100%} 100%{background-position:0% 0%} }
-
-  #wrap{position:fixed;inset:0;display:flex;flex-direction:column;}
-  header{position:fixed;left:0;right:0;top:0;display:flex;gap:.5rem .6rem;flex-wrap:wrap;
-    align-items:center;padding:.55rem .7rem;z-index:30;pointer-events:none}
-  .chip{pointer-events:auto;background:var(--chip);border:1px solid rgba(255,255,255,.12);
-    backdrop-filter: blur(8px); border-radius:14px; padding:.35rem .6rem;
-    display:flex; gap:.45rem; align-items:center; font-weight:700; white-space:nowrap}
-  .btn{cursor:pointer; color:#fff}
-  .pill{border-radius:999px; padding:.35rem .75rem}
-
-  /* Top region (grid / unscramble swap) */
-  #top{position:fixed; left:0; right:0; z-index:10}
-  #gridWrap{display:flex; align-items:center; justify-content:center;}
-  #grid{position:relative; display:grid; gap:.55rem; touch-action:none}
-  .cell{background:#e8eef5;color:#0e1116;border-radius:25%;
-    box-shadow: inset 0 -2px 0 rgba(0,0,0,.12);
-    display:flex;align-items:center;justify-content:center;
-    font-weight:800;font-size:1.15rem; letter-spacing:.02em; position:relative}
-  .cell.sel{outline:3px solid #5fb5ff; outline-offset:2px; background:#f5f9ff}
-  .cell.found{background:#d7ffe4}
-/* Enlarge touch/click target without changing visual spacing */
-.cell { position: relative; }
-.cell::before {
-  content: "";
-  position: absolute;
-  inset: -8px;   /* grow hit area by 8px on all sides */
-  pointer-events: none;      /* <— add this */
+:root{
+  --fg:#e9eef4; --bg:#0f1011; --chip:rgba(20,20,22,.72); --sab:env(safe-area-inset-bottom,0px);
+  --ok:#87f59f; --bad:#ff6b6b; --accent:#7aa7ff;
+  --p1:#7aff9f;   /* P1 tint */
+  --p2:#ff9aa9;   /* P2 tint */
 }
-  .cell.hint{ outline:3px dashed #49e68b; animation: hintPulse 1.1s ease-in-out 2; }
-  @keyframes hintPulse{
-  0% {
-    /* outline-offset:0;opacity:.9; */
-    background-color: #d7ffe4;
-  }
-  50% {
-    /* outline-offset:4px;opacity:1; */
-    background-color: gold;
-  }
-  100% {
-    /* outline-offset:0;opacity:.9;  */
-    background-color: #d7ffe4
-  }
-  10%, 90% {
-    transform: translate3d(-1px, 0, 0);
-  }
-  20%, 80% {
-    transform: translate3d(2px, 0, 0);
-  }
-  30%, 50%, 70% {
-    transform: translate3d(-4px, 0, 0);
-  }
-  40%, 60% {
-    transform: translate3d(4px, 0, 0);
-  }
+html,body{margin:0;height:100%;background:var(--bg);color:var(--fg);
+  font-family:system-ui,-apple-system,Segoe UI,Roboto,Inter,Helvetica,Arial,sans-serif;}
+/* drifting background */
+html, body {
+  background: linear-gradient(-45deg in oklch, red, orange, green, blue, indigo, violet);
+  background-size: 600% 600%;
+  animation: driftGradient 120s ease infinite;
 }
+@keyframes driftGradient { 0%{background-position:0% 0%} 50%{background-position:100% 100%} 100%{background-position:0% 0%} }
 
+#wrap{position:fixed;inset:0;display:flex;flex-direction:column;}
+header{position:fixed;left:0;right:0;top:0;display:flex;gap:.5rem .6rem;flex-wrap:wrap;
+  align-items:center;padding:.55rem .7rem;z-index:30;pointer-events:none}
+.chip{pointer-events:auto;background:var(--chip);border:1px solid rgba(255,255,255,.12);
+  backdrop-filter: blur(8px); border-radius:14px; padding:.35rem .6rem;
+  display:flex; gap:.45rem; align-items:center; font-weight:700; white-space:nowrap}
+.btn{cursor:pointer; color:#fff}
+.pill{border-radius:999px; padding:.35rem .75rem}
 
-  /* Word list */
-  #bottom{position:fixed; left:0; right:0; bottom:0; z-index:20;
-    padding:.6rem .7rem calc(.6rem + var(--sab));
-    background:linear-gradient(to top, rgba(10,10,112,.95), rgba(10,10,120,.7) 50%, transparent)}
-  #words{display:grid; grid-template-columns:repeat(2, minmax(140px,1fr)); gap:.4rem .6rem}
-  .w{background:#1c222b;border:1px solid rgba(255,255,255,.12); border-radius:.7rem;
-     padding:.42rem .6rem; font-weight:800; letter-spacing:.06em; display:flex; gap:.4rem; align-items:center}
-  .w.done{opacity:.45}
-  .w.allfound .circ{opacity:1; border-color:#87f59f}
-  .w.allfound span:not(.circ){opacity:.35}
-  .circ{display:inline-flex;align-items:center;justify-content:center;
-    width:1.35em;height:1.35em;border-radius:999px;border:2px solid var(--accent);font-weight:900}
-
-  /* H2H: show one target word (local/online) */
-  .h2h #words{grid-template-columns:1fr}
-  .h2h .w{display:none}
-  .h2h .w.active{display:flex}
-:root {
-  --p1: #7aff9f;   /* greenish tint */
-  --p2: #ff9aa9;   /* reddish tint */
+/* Top region */
+#top{position:fixed; left:0; right:0; z-index:10}
+#gridWrap{display:flex; align-items:center; justify-content:center;}
+#grid{position:relative; display:grid; gap:.55rem; touch-action:none}
+.cell{
+  background:#e8eef5;color:#0e1116;border-radius:25%;
+  box-shadow: inset 0 -2px 0 rgba(0,0,0,.12);
+  display:flex;align-items:center;justify-content:center;
+  font-weight:800;font-size:1.15rem; letter-spacing:.02em; position:relative
 }
+/* bigger tap target */
+.cell::before{ content:""; position:absolute; inset:-8px; pointer-events:none; }
 
-.cell.p1found { background: var(--p1); color:#000; }
-.cell.p2found { background: var(--p2); color:#000; }
+.cell.sel{outline:3px solid #5fb5ff; outline-offset:2px; background:#f5f9ff}
+.cell.found{background:#d7ffe4}
+.cell.p1found{ background:var(--p1)!important; color:#000; }
+.cell.p2found{ background:var(--p2)!important; color:#000; }
 
-.w.p1found { border-color: var(--p1); }
-.w.p2found { border-color: var(--p2); }
-  /* Unscramble */
-  #unsTop{display:none; height:100%; padding:.6rem .7rem;
-    display:flex; flex-direction:column; align-items:center; justify-content:center}
-  #unsSlots{display:flex; gap:.5rem; flex-wrap:wrap; margin:.6rem 0}
-  .slot{ width:2.6rem; height:3.2rem; border-radius:.5rem;
-    background:#141a21; border:2px solid rgba(255,255,255,.18);
-    display:flex; align-items:center; justify-content:center; font-weight:900; font-size:1.45rem }
-  #unsBank{display:flex; gap:.45rem; flex-wrap:wrap; }
-  .chipL{background:#273141; border:1px solid rgba(255,255,255,.18);
-    border-radius:.55rem; padding:.55rem .85rem; font-weight:900; cursor:pointer; color:#fff}
-  #buzzRow{display:none; gap:.5rem; margin-top:.6rem; align-items:center; flex-wrap:wrap; justify-content:center}
-  .buzz{background:#1e232a;border:1px solid rgba(255,255,255,.18); border-radius:.8rem;display:none;
-    padding:.55rem .9rem; font-weight:900; cursor:pointer}
-  .own{outline:2px solid var(--accent);}
+.cell.hint{ outline:3px dashed #49e68b; animation: hintPulse 1.1s ease-in-out 2; }
+@keyframes hintPulse{0%{background:#d7ffe4}50%{background:gold}100%{background:#d7ffe4}}
 
-  /* Settings modal */
-  #cfg{ position:fixed; inset:0; z-index:40; display:flex; align-items:center; justify-content:center;
-        background:rgba(0,0,0,.45); backdrop-filter:blur(6px); }
-  #cfg[hidden]{ display:none; }
-  #cfg .panel{ width:min(92vw,520px); background:#14151a; color:var(--fg);
-    border:1px solid rgba(255,255,255,.14); border-radius:14px; padding:14px;
-    box-shadow:0 10px 30px rgba(0,0,0,.45); }
-  #cfg h3{ margin:.1rem 0 .7rem 0; }
-  #cfg .row{ display:flex; align-items:center; justify-content:space-between; margin:.4rem 0; gap:.8rem; }
-  #cfg select, #cfg input{
-    background:#1c2027; color:var(--fg); border:1px solid rgba(255,255,255,.18);
-    border-radius:10px; padding:.35rem .55rem; min-width:170px; font-weight:600;
-  }
-  #cfg .actions{ display:flex; justify-content:space-between; gap:.5rem; margin-top:.9rem; flex-wrap:wrap }
-  #cfg .actions .left, #cfg .actions .right { display:flex; gap:.5rem; flex-wrap:wrap }
+/* Word list */
+#bottom{position:fixed; left:0; right:0; bottom:0; z-index:20;
+  padding:.6rem .7rem calc(.6rem + var(--sab));
+  background:linear-gradient(to top, rgba(10,10,112,.95), rgba(10,10,120,.7) 50%, transparent)}
+#words{display:grid; grid-template-columns:repeat(2, minmax(140px,1fr)); gap:.4rem .6rem}
+.w{background:#1c222b;border:1px solid rgba(255,255,255,.12); border-radius:.7rem;
+   padding:.42rem .6rem; font-weight:800; letter-spacing:.06em; display:flex; gap:.4rem; align-items:center}
+.w.done{opacity:.6}
+.w.p1found{ border-color:var(--p1) !important; }
+.w.p2found{ border-color:var(--p2) !important; }
+.w.allfound .circ{opacity:1; border-color:#87f59f}
+.w.allfound span:not(.circ){opacity:.35}
+.circ{display:inline-flex;align-items:center;justify-content:center;
+  width:1.35em;height:1.35em;border-radius:999px;border:2px solid var(--accent);font-weight:900}
 
-  .hide{display:none!important}
+/* H2H: show only current word */
+.h2h #words{grid-template-columns:1fr}
+.h2h .w{display:none}
+.h2h .w.active{display:flex}
+
+/* Unscramble */
+#unsTop{display:none; height:100%; padding:.6rem .7rem;
+  display:flex; flex-direction:column; align-items:center; justify-content:center}
+#unsSlots{display:flex; gap:.5rem; flex-wrap:wrap; margin:.6rem 0}
+.slot{ width:2.6rem; height:3.2rem; border-radius:.5rem;
+  background:#141a21; border:2px solid rgba(255,255,255,.18);
+  display:flex; align-items:center; justify-content:center; font-weight:900; font-size:1.45rem }
+#unsBank{display:flex; gap:.45rem; flex-wrap:wrap; }
+.chipL{background:#273141; border:1px solid rgba(255,255,255,.18);
+  border-radius:.55rem; padding:.55rem .85rem; font-weight:900; cursor:pointer; color:#fff}
+#buzzRow{display:none; gap:.5rem; margin-top:.6rem; align-items:center; flex-wrap:wrap; justify-content:center}
+.buzz{background:#1e232a;border:1px solid rgba(255,255,255,.18); border-radius:.8rem;display:none;
+  padding:.55rem .9rem; font-weight:900; cursor:pointer}
+.own{outline:2px solid var(--accent);}
+
+/* Settings modal */
+#cfg{ position:fixed; inset:0; z-index:40; display:flex; align-items:center; justify-content:center;
+      background:rgba(0,0,0,.45); backdrop-filter:blur(6px); }
+#cfg[hidden]{ display:none; }
+#cfg .panel{ width:min(92vw,520px); background:#14151a; color:var(--fg);
+  border:1px solid rgba(255,255,255,.14); border-radius:14px; padding:14px;
+  box-shadow:0 10px 30px rgba(0,0,0,.45); }
+#cfg h3{ margin:.1rem 0 .7rem 0; }
+#cfg .row{ display:flex; align-items:center; justify-content:space-between; margin:.4rem 0; gap:.8rem; }
+#cfg select, #cfg input{
+  background:#1c2027; color:var(--fg); border:1px solid rgba(255,255,255,.18);
+  border-radius:10px; padding:.35rem .55rem; min-width:170px; font-weight:600;
+}
+#cfg .actions{ display:flex; justify-content:space-between; gap:.5rem; margin-top:.9rem; flex-wrap:wrap }
+#cfg .actions .left, #cfg .actions .right { display:flex; gap:.5rem; flex-wrap:wrap }
+
+.hide{display:none!important}
 </style>
 </head>
 <body>
@@ -221,14 +192,14 @@ const sb = window.supabase.createClient(SB_URL, SB_KEY);
 </div>
 
 <script>
-/* ========= tiny helpers ========= */
+/* ===== helpers ===== */
 const $ = s => document.querySelector(s);
 const hudTime=$('#hudTime'), p1ScoreEl=$('#p1Score'), p2ScoreEl=$('#p2Score'),
       gridEl=$('#grid'), wordsEl=$('#words'), hintBtn=$('#hintBtn'),
       timeChip=$('#timeChip'), p2Chip=$('#p2Chip'), roomChip=$('#roomChip'), hudRoom=$('#hudRoom');
 const buzz = pat => ('vibrate' in navigator) && navigator.vibrate(pat);
-  
-/* ========= difficulty & base puzzle ========= */
+
+/* ===== difficulty & puzzle ===== */
 const DIFFICULTY = {
   Easy:   { rows:10, cols:10, dirs:['H','V'],            backwards:false, words:6, searchSecs:null, hintAfter:8,  unscrambleSecs:20, dummies:0, mult:0.9, showHintBtn:true },
   Normal: { rows:12, cols:12, dirs:['H','V','D'],        backwards:'few', words:6, searchSecs:null, hintAfter:12, unscrambleSecs:25, dummies:0, mult:1.0, showHintBtn:false },
@@ -248,82 +219,77 @@ const PUZZLE_BASE = {
   finalAnswer: 'PICNIC'
 };
 
-/* ========= state ========= */
+/* ===== state ===== */
 const S = {
   diffName:'Easy', diff: DIFFICULTY.Easy,
-  h2h:false, online:false,              // online => Supabase backed
+  h2h:false, online:false,
   grid:[], rows:10, cols:10,
   placed:[], found:new Set(),
   circled:[],
   stage:'search', time:0, running:false, last:0,
   idle:0, hintLock:false,
-  p:[0,0], curP:0,                       // local-only turn indicator
+  p:[0,0], curP:0,
   dragging:false, startIdx:null, selPath:[],
   input:[], owner:null,
 
-  // H2H sync helpers
-  claimed: new Set(),                    // word indices we’ve locked in
-  unscrambleStarted:false,
+  // H2H sync
+  claimed:new Set(), unscrambleStarted:false,
 
-  // seed for deterministic board (online)
+  // seeded board (online)
   seed:null, useSeed:false, rng:null
 };
 
-/* ========= seeded RNG for online sync ========= */
+/* ===== RNG ===== */
 function mulberry32(a){ return function(){ let t = a += 0x6D2B79F5; t = Math.imul(t ^ t>>>15, t | 1); t ^= t + Math.imul(t ^ t>>>7, t | 61); return ((t ^ t>>>14) >>> 0) / 4294967296; }; }
 function setRngSeed(seed){ S.seed = seed|0; S.rng = mulberry32(S.seed); S.useSeed = true; }
 const R = () => (S.useSeed && S.rng ? S.rng() : Math.random());
 
-/* ========= mode & HUD ========= */
+/* ===== mode & HUD ===== */
 function setMode(kind){
-  // kind: 'solo' | 'h2h_local' | 'h2h_online'
   S.h2h = (kind !== 'solo');
   S.online = (kind === 'h2h_online');
   document.body.classList.toggle('h2h', S.h2h);
 
-  // hints only in solo
-  if (S.h2h) { hintBtn.style.display='none'; S.diff.hintAfter=null; }
-  else { hintBtn.style.display=(S.diff.showHintBtn?'flex':'none'); S.diff.hintAfter=DIFFICULTY[S.diffName].hintAfter; }
+  // Hint only in Solo Search
+  refreshHintVisibility();
 
   // P2 score only in H2H
   p2Chip.classList.toggle('hide', !S.h2h);
+
   // Room chip only online
   roomChip.style.display = S.online ? 'flex' : 'none';
+
+  // Friendly P1 label when Solo
   const name = localStorage.getItem('war_name') || 'You';
   const pill = document.querySelector('.pill');
-  if (pill) {
-    pill.textContent = `${S.h2h ? 'P1' : name} ⭐ 0`;  // include score if you want
-  }
+  if (pill) pill.childNodes[0].nodeValue = (S.h2h ? 'P1 ⭐ ' : `${name} ⭐ `);
 }
-function setDifficulty(name){ S.diffName = name; S.diff = DIFFICULTY[name]; }
+function setDifficulty(name){ S.diffName=name; S.diff = DIFFICULTY[name]; }
 
-/* ========= layout ========= */
+/* ===== layout ===== */
 function layout(){
   const head = document.querySelector('header'), bottom = document.querySelector('#bottom');
   const topEl = document.getElementById('top');
   if (!head || !bottom || !topEl) return;
   const headH=head.offsetHeight, bottomH=bottom.offsetHeight;
   const topH = Math.max(220, innerHeight - headH - bottomH - 10);
-  topEl.style.top = headH + 'px';
-  topEl.style.height = topH + 'px';
+  topEl.style.top = headH + 'px'; topEl.style.height = topH + 'px';
   gridEl.style.display='grid';
   gridEl.style.gridTemplateColumns = `repeat(${S.cols||10}, 1fr)`;
   const size = Math.min(innerWidth-16, topH-12);
-  gridEl.style.width = size + 'px';
-  gridEl.style.height = size + 'px';
+  gridEl.style.width = size + 'px'; gridEl.style.height = size + 'px';
 }
 addEventListener('resize', layout);
 visualViewport?.addEventListener('resize', layout);
 
-/* ========= board building ========= */
+/* ===== board build ===== */
 function allowedDirs(){
   const d=[]; if(S.diff.dirs.includes('H')) d.push([0,1],[0,-1]);
   if(S.diff.dirs.includes('V')) d.push([1,0],[-1,0]);
   if(S.diff.dirs.includes('D')) d.push([1,1],[-1,-1],[1,-1],[-1,1]);
   return d;
 }
-const idx=(r,c)=> r*S.cols+c;
-const inb=(r,c)=> r>=0&&c>=0&&r<S.rows&&c<S.cols;
+const idx=(r,c)=> r*S.cols+c; const inb=(r,c)=> r>=0&&c>=0&&r<S.rows&&c<S.cols;
 function buildEmpty(){ S.grid = Array(S.rows*S.cols).fill(''); }
 function tryPlace(word){
   const W = word.text.toUpperCase(), dirs = allowedDirs();
@@ -353,7 +319,7 @@ function fillRandom(){
   for(let i=0;i<S.grid.length;i++) if(!S.grid[i]) S.grid[i]=LETTERS[(R()*LETTERS.length)|0];
 }
 
-/* ========= render ========= */
+/* ===== render ===== */
 function renderGrid(){
   gridEl.innerHTML='';
   for(let i=0;i<S.grid.length;i++){
@@ -372,32 +338,30 @@ function renderWordList(){
   updateActiveWordRow();
 }
 
-/* ========= active word (H2H) ========= */
+/* ===== active word (H2H) ===== */
 function nextUnclaimedIndex(){
   for(let i=0;i<PUZZLE_BASE.words.length;i++) if(!S.claimed.has(i)) return i;
   return null;
 }
 function updateActiveWordRow(){
-  if(!S.h2h) return;
+  if(!S.h2h){ // Solo: show all
+    document.querySelectorAll('#words .w').forEach(w=> w.classList.remove('active'));
+    return;
+  }
   document.querySelectorAll('#words .w').forEach(w=>w.classList.remove('active'));
   const n = nextUnclaimedIndex();
   if (n!=null) document.getElementById('w_'+n)?.classList.add('active');
 }
 
-/* ========= selection helpers ========= */
+/* ===== selection ===== */
 function rcFromIdx(id){ return [(id/S.cols)|0, id%S.cols]; }
-function dirOf(a,b){
-  const [ar,ac]=rcFromIdx(a), [br,bc]=rcFromIdx(b);
+function dirOf(a,b){ const [ar,ac]=rcFromIdx(a), [br,bc]=rcFromIdx(b);
   const dr=Math.sign(br-ar), dc=Math.sign(bc-ac);
-  if(dr===0&&dc===0) return null;
-  if(dr!==0&&dc!==0 && Math.abs(br-ar)!==Math.abs(bc-ac)) return null;
-  return [dr,dc];
-}
-function cellsBetween(a,b){
-  const d=dirOf(a,b); if(!d) return null;
+  if(dr===0&&dc===0) return null; if(dr!==0&&dc!==0 && Math.abs(br-ar)!==Math.abs(bc-ac)) return null;
+  return [dr,dc]; }
+function cellsBetween(a,b){ const d=dirOf(a,b); if(!d) return null;
   const [ar,ac]=rcFromIdx(a), [br,bc]=rcFromIdx(b); const n=Math.max(Math.abs(br-ar),Math.abs(bc-ac))+1, out=[];
-  for(let k=0;k<n;k++){ const r=ar+d[0]*k, c=ac+d[1]*k; out.push(idx(r,c)); } return out;
-}
+  for(let k=0;k<n;k++){ const r=ar+d[0]*k, c=ac+d[1]*k; out.push(idx(r,c)); } return out; }
 function setSel(on,list){ for(const id of list){ gridEl.children[id]?.classList.toggle('sel',on); } }
 function wordFrom(list){ return list.map(i=>S.grid[i]).join(''); }
 function findPlacedByPath(list){
@@ -413,38 +377,29 @@ function findPlacedByPath(list){
   }
 }
 
-/* ========= hints (solo only) ========= */
-function showHint(){
-  if (S.stage !== 'search' || S.h2h) return;          // Solo only
-  S.hintLock = true; setTimeout(()=> S.hintLock = false, 2600);
-
-  // only words not yet claimed
-  const pool = S.placed
-    .map((p, i) => ({ p, i }))
-    .filter(({ i }) => !S.claimed.has(i));
-  if (!pool.length) return;
-
-  const pick = pool[(R() * pool.length) | 0].p;
-  const id = pick.path[pick.takeIndex ?? ((R() * pick.path.length) | 0)];
-  const cell = gridEl.children[id];
-  if (cell){
-    cell.classList.add('hint');
-    setTimeout(()=> cell.classList.remove('hint'), 1400);
-  }
-}
-hintBtn.onclick = showHint;
-
-function refreshHintVisibility() {
-  // show only in SOLO + SEARCH stage + this difficulty actually has hints
+/* ===== hints & timer visibility ===== */
+function refreshHintVisibility(){
   const canShow = !S.h2h && S.stage === 'search' && DIFFICULTY[S.diffName].showHintBtn;
   hintBtn.style.display = canShow ? 'flex' : 'none';
 }
 function refreshTimerChip(){
   const show = (!S.h2h && S.stage === 'unscramble' && !!S.time);
-  document.getElementById('timeChip')?.classList.toggle('hide', !show);
+  timeChip.classList.toggle('hide', !show);
 }
-  
-/* ========= run content ========= */
+function showHint(){
+  if (S.stage!=='search' || S.h2h) return;
+  S.hintLock=true; setTimeout(()=>S.hintLock=false, 2600);
+  const pool = S.placed
+    .map((p,i)=>({p,i}))
+    .filter(({i})=>!S.claimed.has(i));
+  if(!pool.length) return;
+  const pick = pool[(R()*pool.length)|0].p;
+  const id = pick.path[pick.takeIndex ?? ((R()*pick.path.length)|0)];
+  const cell = gridEl.children[id]; if(cell){ cell.classList.add('hint'); setTimeout(()=>cell.classList.remove('hint'),1400); }
+}
+hintBtn.onclick = showHint;
+
+/* ===== run content ===== */
 let CUR = { words:[], finalAnswer:'', unscrambleSecs:25 };
 function makeRun(){
   CUR.words = PUZZLE_BASE.words.map(w=>({...w}));
@@ -452,67 +407,54 @@ function makeRun(){
   CUR.unscrambleSecs = S.h2h ? null : (DIFFICULTY[S.diffName].unscrambleSecs);
 }
 
-/* ========= scoring ========= */
+/* ===== scoring ===== */
 function updateScores(){ p1ScoreEl.textContent=S.p[0]; p2ScoreEl.textContent=S.p[1]; }
 function scoreWord(len, player){ const pts=Math.round(5*len*(S.diff.mult||1)); if(S.h2h) S.p[player]+=pts; else S.p[0]+=pts; updateScores(); }
 function scoreBonus(bonus, player){ const pts=Math.round(bonus*(S.diff.mult||1)); if(S.h2h) S.p[player]+=pts; else S.p[0]+=pts; updateScores(); }
 
-/* ========= claim flow (works for local & online) ========= */
-// Map pid -> class name
-function classForPid(pid){
-  return (pid === 'p1') ? 'p1found' : 'p2found';
-}
-
-// Claim handler used by local and online flows
+/* ===== unified claim handler (tint + score + advance) ===== */
+function classForPid(pid){ return (pid==='p1') ? 'p1found' : 'p2found'; }
 function handleClaim(wIdx, byPid){
-  if (S.claimed.has(wIdx)) return;        // idempotent
+  if (S.claimed.has(wIdx)) return;          // idempotent
   S.claimed.add(wIdx);
 
   const placed = S.placed[wIdx];
 
-  // SOLO bookkeeping
-  if (!S.h2h && placed?.text) S.found.add(placed.text);
-
-  // Decide which tint to apply
-  // - Online H2H: we’re told which pid won (`byPid`)
-  // - Local H2H: alternate by S.curP (convert to 'p1'/'p2')
-  // - Solo: treat as p1
+  // Decide pid if local/solo
   let pid = byPid;
   if (!S.h2h) pid = 'p1';
   else if (!S.online) pid = (S.curP === 0 ? 'p1' : 'p2');
 
   const claimClass = classForPid(pid);
 
-  // Paint grid cells and the word row
+  // Paint grid
   if (placed){
-    for (const id of placed.path){
+    for(const id of placed.path){
       const cell = gridEl.children[id];
       if (cell){ cell.classList.remove('sel'); cell.classList.add('found', claimClass); }
     }
   }
-  const row = document.getElementById('w_'+wIdx);
+  // Row
+  const row=document.getElementById('w_'+wIdx);
   if (row) row.classList.add('done', claimClass);
 
   // Scoring
   const ptsLen = placed?.text?.length || 5;
   if (S.h2h){
-    const awardTo = (pid === 'p1') ? 0 : 1;   // p1 -> index 0, p2 -> index 1
-    scoreWord(ptsLen, awardTo);
+    scoreWord(ptsLen, pid==='p1' ? 0 : 1);
   } else {
     scoreWord(ptsLen, 0);
   }
 
-  // Advance target (H2H shows next word)
   updateActiveWordRow();
 
-  // If every word is claimed → move to Unscramble
-  if (nextUnclaimedIndex() == null && !S.unscrambleStarted){
-    S.unscrambleStarted = true;
+  if (nextUnclaimedIndex()==null && !S.unscrambleStarted){
+    S.unscrambleStarted=true;
     endSearchStartUnscramble();
   }
 }
 
-/* ========= build game ========= */
+/* ===== build game ===== */
 function buildGame(){
   S.rows = S.diff.rows; S.cols = S.diff.cols;
   makeRun();
@@ -521,14 +463,11 @@ function buildGame(){
   S.claimed.clear(); S.unscrambleStarted=false;
   S.stage='search'; hudTime.textContent='—';
   S.idle=0; S.hintLock=false; S.p=[0,0]; S.curP=0; updateScores();
-  refreshTimerChip();
+
   $('#gridWrap').style.display='flex'; $('#unsTop').style.display='none';
   $('#buzzRow').style.display = S.h2h ? 'flex' : 'none'; setOwner(null);
 
-  if (S.online && !S.useSeed){
-    // if somehow online but missing seed, generate temp to avoid crash
-    setRngSeed((Math.random()*2_000_000_000)|0);
-  }
+  if (S.online && !S.useSeed){ setRngSeed((Math.random()*2_000_000_000)|0); }
 
   for(let tries=0; tries<80; tries++){
     buildEmpty(); S.placed.length=0;
@@ -536,10 +475,12 @@ function buildGame(){
     if(ok) break;
   }
   fillRandom(); renderGrid(); renderWordList(); layout();
+
   refreshHintVisibility();
+  refreshTimerChip();
 }
 
-/* ========= input (search) ========= */
+/* ===== input (search) ===== */
 function markInteraction(){ S.idle=0; }
 ['pointerdown','pointermove','keydown','click','touchstart'].forEach(ev=>addEventListener(ev,markInteraction,{passive:true}));
 
@@ -563,14 +504,11 @@ addEventListener('pointerup', e=>{
   if(!S.selPath.length) return;
   const found = findPlacedByPath(S.selPath);
   if(found){
-    const { placed, wIdx } = found;
-    // local immediate claim
-    const myPid = S.h2h ? (S.online ? (Net.me().pid) : (S.curP===0?'p1':'p2')) : 'p1';
+    const { wIdx } = found;
+    const myPid = S.h2h ? (S.online ? Net.me().pid : (S.curP===0?'p1':'p2')) : 'p1';
     handleClaim(wIdx, myPid);
-    // broadcast if online
     if (S.h2h && S.online && Net.me().roomId) Net.signalFound(wIdx);
-    // local test: flip turn
-    if (S.h2h && !S.online) S.curP = 1 - S.curP;
+    if (S.h2h && !S.online) S.curP = 1 - S.curP;  // swap local turn
     buzz(12);
   } else {
     buzz([2,40,2]); setSel(false,S.selPath);
@@ -578,7 +516,7 @@ addEventListener('pointerup', e=>{
   S.selPath.length=0;
 });
 
-/* ========= H2H: buzz ownership for typing ========= */
+/* ===== H2H owner ===== */
 $('#buzzP1').onclick = ()=> setOwner(0);
 $('#buzzP2').onclick = ()=> setOwner(1);
 function setOwner(p){
@@ -588,9 +526,8 @@ function setOwner(p){
   $('#buzzP2').classList.toggle('own', p===1);
 }
 
-/* ========= stage → unscramble ========= */
+/* ===== stage → Unscramble ===== */
 function endSearchStartUnscramble(){
-  // reveal circled letters in list
   S.circled = PUZZLE_BASE.words.map(w => w.text[w.takeIndex]).filter(Boolean);
   document.querySelectorAll('#words .w').forEach((row, i)=>{
     const w = PUZZLE_BASE.words[i].text.toUpperCase(), k = PUZZLE_BASE.words[i].takeIndex|0;
@@ -601,7 +538,7 @@ function endSearchStartUnscramble(){
   $('#gridWrap').style.display='none';
   $('#unsTop').style.display='flex';
   S.stage='unscramble';
-  refreshHintVisibility();        // ← add this
+  refreshHintVisibility();
 
   buildUnscramble();
   S.time = (S.h2h ? 0 : (DIFFICULTY[S.diffName].unscrambleSecs||0));
@@ -611,7 +548,7 @@ function endSearchStartUnscramble(){
   if (S.h2h) setOwner(S.curP);
 }
 
-/* ========= unscramble ========= */
+/* ===== unscramble ===== */
 function shuffle(a){ for(let i=a.length-1;i>0;i--){ const j=((S.useSeed?Math.floor(R()*(i+1)):(Math.random()*(i+1)))|0); [a[i],a[j]]=[a[j],a[i]]; } return a; }
 function buildUnscramble(){
   const slots=$('#unsSlots'), bank=$('#unsBank'), msg=$('#unsMsg');
@@ -654,70 +591,29 @@ $('#unsSubmit').onclick = ()=>{
 };
 function setUnsMsg(t, ok){ const el=$('#unsMsg'); el.textContent=t; el.style.color = ok? '#87f59f' : '#ff6b6b'; }
 
-/* ========= tick ========= */
+/* ===== tick ===== */
 function tick(now){
   if (!now) now = performance.now();
   const dt = S.last ? (now - S.last)/1000 : 0; S.last = now;
 
   if (S.stage === 'search') {
-    // 🚫 never show timer in search
     hudTime.textContent = '—';
-
-    // optional idle hint
-    if (!S.h2h && S.diff.hintAfter && !S.hintLock) {
-      S.idle += dt;
-      if (S.idle >= S.diff.hintAfter) {
-        showHint();
-        S.idle = 0;
-      }
+    if (!S.h2h && S.diff.hintAfter && !S.hintLock){
+      S.idle += dt; if (S.idle >= S.diff.hintAfter){ showHint(); S.idle=0; }
     }
-  } 
-  else if (S.stage === 'unscramble') {
-    if (!S.h2h && S.running) {
-      S.time -= dt;
-      if (S.time <= 0) { 
-        S.time = 0; S.running = false; 
-        setUnsMsg('Time!', false); 
-      }
+  } else if (S.stage === 'unscramble') {
+    if (!S.h2h && S.running){
+      S.time -= dt; if (S.time<=0){ S.time=0; S.running=false; setUnsMsg('Time!', false); }
       hudTime.textContent = Math.ceil(S.time);
-    } else {
-      hudTime.textContent = '—';
-    }
+    } else hudTime.textContent = '—';
   }
-
   requestAnimationFrame(tick);
 }
 
-// Paint a whole word (grid path + list row) with a player tint class.
-function applyTintForWord(wordIdx, className){
-  const placed = S.placed[wordIdx];
-  if (placed){
-    for (const id of placed.path){
-      const cell = gridEl.children[id];
-      if (cell){ cell.classList.add('found', className); cell.classList.remove('sel'); }
-    }
-  }
-  const row = document.getElementById('w_'+wordIdx);
-  if (row) row.classList.add('done', className);
-}
+/* ===== realtime: remote → local ===== */
+function lockWordRemotely(wordIdx, byPid){ handleClaim(wordIdx, byPid); }
 
-// Handle realtime claim (online H2H). Safe to include even if you’re not using online yet.
-function lockWordRemotely(wordIdx, byPid){
-  const row = document.getElementById('w_'+wordIdx);
-  if (!row || row.classList.contains('done')) return;
-
-  const placed = S.placed[wordIdx];
-  const claimClass = (byPid === 'p1') ? 'p1found' : 'p2found';
-
-  if (placed){
-    for (const id of placed.path){
-      const cell = gridEl.children[id];
-      if (cell) { cell.classList.add('found', claimClass); cell.classList.remove('sel'); }
-    }
-  }
-  row.classList.add('done', claimClass);
-}
-/* ========= UI wiring ========= */
+/* ===== UI wiring ===== */
 $('#btnStart').onclick = ()=>{ buildGame(); tick(); };
 $('#btnCfg').onclick = ()=>{
   $('#cfgMode').value = S.online? 'h2h_online' : (S.h2h? 'h2h_local':'solo');
@@ -733,8 +629,8 @@ $('#cfgApply').onclick = ()=>{
   buildGame(); $('#cfg').hidden = true;
 };
 
-/* ========= Supabase net layer ========= */
-const Net = (()=>{
+/* ===== Supabase net layer ===== */
+const Net = (()=> {
   const ROOM_ALPH='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
   const makeRoomId=(n=6)=> Array.from({length:n},()=>ROOM_ALPH[(Math.random()*ROOM_ALPH.length)|0]).join('');
   let roomId=null, pid=null, chClaims=null, chRooms=null;
@@ -788,7 +684,7 @@ const Net = (()=>{
   return { createRoom, joinRoom, setStatusPlaying, signalFound, subscribe, leave, me };
 })();
 
-/* ========= online create/join (Settings) ========= */
+/* ===== online create/join ===== */
 $('#btnCreateRoom').onclick = async ()=>{
   const name = ($('#cfgName').value||'Player').trim() || 'Player';
   try{
@@ -799,9 +695,8 @@ $('#btnCreateRoom').onclick = async ()=>{
     await Net.setStatusPlaying();
     const snap = await Net.subscribe({
       onClaim: (idx, by)=> handleClaim(idx, by),
-      onRoomUpdate: (room)=> { /* optional */ }
+      onRoomUpdate: ()=>{}
     });
-    // hydrate existing claims
     for (const [i, by] of Object.entries(snap.foundBy)) handleClaim(+i, by);
   }catch(err){ $('#netStatus').textContent = 'Create failed: '+err.message; }
 };
@@ -816,22 +711,14 @@ $('#btnJoinRoom').onclick = async ()=>{
     $('#netStatus').textContent = `Joined ${code} as ${pid.toUpperCase()}`;
     const snap = await Net.subscribe({
       onClaim: (idx, by)=> handleClaim(idx, by),
-      onRoomUpdate: (room)=> { /* optional */ }
+      onRoomUpdate: ()=>{}
     });
-    // hydrate claims that already exist
     for (const [i, by] of Object.entries(foundBy)) handleClaim(+i, by);
   }catch(err){ $('#netStatus').textContent = 'Join failed: '+err.message; }
 };
 
-/* ========= boot ========= */
+/* ===== boot ===== */
 setMode('solo'); setDifficulty('Easy'); buildGame(); layout(); tick();
 </script>
 </body>
 </html>
-
-
-
-
-
-
-
