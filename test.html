@@ -52,6 +52,7 @@ const sb = window.supabase.createClient(SB_URL, SB_KEY);
   content: "";
   position: absolute;
   inset: -8px;   /* grow hit area by 8px on all sides */
+  pointer-events: none;      /* <— add this */
 }
   .cell.hint{ outline:3px dashed #49e68b; animation: hintPulse 1.1s ease-in-out 2; }
   @keyframes hintPulse{
@@ -457,46 +458,54 @@ function scoreWord(len, player){ const pts=Math.round(5*len*(S.diff.mult||1)); i
 function scoreBonus(bonus, player){ const pts=Math.round(bonus*(S.diff.mult||1)); if(S.h2h) S.p[player]+=pts; else S.p[0]+=pts; updateScores(); }
 
 /* ========= claim flow (works for local & online) ========= */
+// Map pid -> class name
+function classForPid(pid){
+  return (pid === 'p1') ? 'p1found' : 'p2found';
+}
+
+// Claim handler used by local and online flows
 function handleClaim(wIdx, byPid){
-  if (S.claimed.has(wIdx)) return;      // idempotent
+  if (S.claimed.has(wIdx)) return;        // idempotent
   S.claimed.add(wIdx);
 
-  // paint grid path
   const placed = S.placed[wIdx];
+
+  // SOLO bookkeeping
   if (!S.h2h && placed?.text) S.found.add(placed.text);
+
+  // Decide which tint to apply
+  // - Online H2H: we’re told which pid won (`byPid`)
+  // - Local H2H: alternate by S.curP (convert to 'p1'/'p2')
+  // - Solo: treat as p1
+  let pid = byPid;
+  if (!S.h2h) pid = 'p1';
+  else if (!S.online) pid = (S.curP === 0 ? 'p1' : 'p2');
+
+  const claimClass = classForPid(pid);
+
+  // Paint grid cells and the word row
   if (placed){
-    for(const id of placed.path){
+    for (const id of placed.path){
       const cell = gridEl.children[id];
-      if (cell){ cell.classList.remove('sel'); cell.classList.add('found'); }
+      if (cell){ cell.classList.remove('sel'); cell.classList.add('found', claimClass); }
     }
   }
-  // row visuals
   const row = document.getElementById('w_'+wIdx);
-  if (row){
-    row.classList.add('done');
-    if (byPid==='p2') row.style.borderColor = '#ff9aa9';
-    if (byPid==='p1') row.style.borderColor = '#9affc7';
-  }
+  if (row) row.classList.add('done', claimClass);
 
-  // scoring (who gets points?)
+  // Scoring
+  const ptsLen = placed?.text?.length || 5;
   if (S.h2h){
-    if (S.online){
-      const me = Net.me();                           // {roomId, pid}
-      const awardTo = (byPid === 'p1') ? 0 : 1;      // p1 -> index 0, p2 -> index 1
-      scoreWord((placed?.text?.length||5), awardTo);
-    } else {
-      // local test alternates by turn owner
-      const awardTo = (S.curP===0)?0:1;
-      scoreWord((placed?.text?.length||5), awardTo);
-    }
+    const awardTo = (pid === 'p1') ? 0 : 1;   // p1 -> index 0, p2 -> index 1
+    scoreWord(ptsLen, awardTo);
   } else {
-    scoreWord((placed?.text?.length||5), 0);
+    scoreWord(ptsLen, 0);
   }
 
-  // advance target for everyone
+  // Advance target (H2H shows next word)
   updateActiveWordRow();
 
-  // if all claimed → unscramble
+  // If every word is claimed → move to Unscramble
   if (nextUnclaimedIndex() == null && !S.unscrambleStarted){
     S.unscrambleStarted = true;
     endSearchStartUnscramble();
@@ -819,6 +828,7 @@ setMode('solo'); setDifficulty('Easy'); buildGame(); layout(); tick();
 </script>
 </body>
 </html>
+
 
 
 
