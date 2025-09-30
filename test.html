@@ -219,6 +219,19 @@ const PUZZLE_BASE = {
   finalAnswer: 'PICNIC'
 };
 
+  function endMatch(winnerIsMe){
+  S.running = false;
+  setOwner(null);
+  // lock inputs
+  Array.from(document.querySelectorAll('#unsBank .chipL')).forEach(b=> b.disabled = true);
+  // message
+  if (winnerIsMe) {
+    setUnsMsg('You solved it! 🎉', true);
+  } else {
+    setUnsMsg('Opponent solved it. You lose.', false);
+  }
+}
+
 /* ===== state ===== */
 const S = {
   diffName:'Easy', diff: DIFFICULTY.Easy,
@@ -317,6 +330,18 @@ function tryPlace(word){
 function fillRandom(){
   const LETTERS="EEEEEEEEEEEEEEEAAAAAAAIIIIIIIOOOOOONNNNRRRRRSSSSTTTTTDLLLLUGGBBCCMMPPFFHHVVWWYKJXQZ";
   for(let i=0;i<S.grid.length;i++) if(!S.grid[i]) S.grid[i]=LETTERS[(R()*LETTERS.length)|0];
+}
+function endMatch(winnerIsMe){
+  S.running = false;
+  setOwner(null);
+  // lock inputs
+  Array.from(document.querySelectorAll('#unsBank .chipL')).forEach(b=> b.disabled = true);
+  // message
+  if (winnerIsMe) {
+    setUnsMsg('You solved it! 🎉', true);
+  } else {
+    setUnsMsg('Opponent solved it. You lose.', false);
+  }
 }
 
 /* ===== render ===== */
@@ -545,7 +570,10 @@ function endSearchStartUnscramble(){
   S.running = !!S.time;
   refreshTimerChip();
   hudTime.textContent = S.running? Math.ceil(S.time) : '—';
-  if (S.h2h) setOwner(S.curP);
+  if (S.h2h){
+    const ownerIdx = S.online ? (Net.me().pid === 'p1' ? 0 : 1) : S.curP;
+    setOwner(ownerIdx);
+  }
 }
 
 /* ===== unscramble ===== */
@@ -585,6 +613,10 @@ $('#unsSubmit').onclick = ()=>{
     const bonus = Math.max(0, Math.ceil(S.time)) * 10;
     const winner = S.h2h ? (S.owner ?? S.curP) : 0;
     scoreBonus(bonus, winner);
+  if (S.h2h && S.online) {
+    Net.signalWin();            // tell the other device
+  }
+  endMatch(true);               // lock UI locally and show winner message
     setUnsMsg(`Correct! +${bonus} ⭐ to P${winner+1}`, true);
     S.running=false; setOwner(null); buzz([10,40,10]);
   } else { setUnsMsg('Try again', false); buzz([2,40,2]); if (S.h2h) setOwner(null); }
@@ -665,6 +697,10 @@ const Net = (()=> {
     const res=await sb.from('room_claims').insert({room_id:roomId, word_idx:wordIdx, by_pid:pid});
     if(res.error && res.error.code!=='23505') console.warn('claim error', res.error);
   }
+  async function signalWin(){
+    if (!roomId || !pid) return;
+    await sb.from('room_claims').insert({ room_id: roomId, word_idx: -1, by_pid: pid });
+  }
   async function subscribe(handlers){
     chClaims = sb.channel('claims_'+roomId).on('postgres_changes',{
       event:'INSERT', schema:'public', table:'room_claims', filter:`room_id=eq.${roomId}`
@@ -681,7 +717,7 @@ const Net = (()=> {
   }
   async function leave(){ if(chClaims) await sb.removeChannel(chClaims); if(chRooms) await sb.removeChannel(chRooms); roomId=null; pid=null; }
   const me = ()=>({roomId,pid});
-  return { createRoom, joinRoom, setStatusPlaying, signalFound, subscribe, leave, me };
+  return { createRoom, joinRoom, setStatusPlaying, signalFound, signalWin, subscribe, leave, me };
 })();
 
 /* ===== online create/join ===== */
@@ -694,8 +730,15 @@ $('#btnCreateRoom').onclick = async ()=>{
     $('#netStatus').textContent = `Room created. Share code: ${roomId}`;
     await Net.setStatusPlaying();
     const snap = await Net.subscribe({
-      onClaim: (idx, by)=> handleClaim(idx, by),
-      onRoomUpdate: ()=>{}
+      onClaim: (idx, by) => {
+        if (idx === -1) {
+          // Someone declared victory
+          const iAmWinner = (S.online && Net.me().pid === by);
+          endMatch(iAmWinner);
+          return;
+        }
+        handleClaim(idx, by);
+      }
     });
     for (const [i, by] of Object.entries(snap.foundBy)) handleClaim(+i, by);
   }catch(err){ $('#netStatus').textContent = 'Create failed: '+err.message; }
@@ -722,3 +765,4 @@ setMode('solo'); setDifficulty('Easy'); buildGame(); layout(); tick();
 </script>
 </body>
 </html>
+
