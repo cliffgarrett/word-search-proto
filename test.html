@@ -212,6 +212,74 @@ const PUZZLE_BASE = {
   finalAnswer: 'PICNIC'
 };
 
+/* ========= audio ========= */
+const Snd = (() => {
+  // update these paths to your files
+  const files = {
+    search:      '/audio/search.mp3',
+    unscramble:  '/audio/unscramble.mp3',
+    victory:     '/audio/victory.mp3',
+    buzzer:      '/audio/buzzer.mp3',
+  };
+
+  // plain <audio> elements are simplest and good enough
+  const aSearch = new Audio(files.search);
+  const aUns    = new Audio(files.unscramble);
+  const fxWin   = new Audio(files.victory);
+  const fxLose  = new Audio(files.buzzer);
+
+  [aSearch, aUns].forEach(a => { a.loop = true; a.preload = 'auto'; a.volume = 0.8; });
+  [fxWin, fxLose].forEach(a => { a.preload = 'auto'; a.volume = 1.0; });
+
+  let unlocked = false;
+  async function userInit(){
+    if (unlocked) return;
+    try {
+      // required to satisfy mobile autoplay policies
+      await aSearch.play(); aSearch.pause(); aSearch.currentTime = 0;
+      await aUns.play();    aUns.pause();    aUns.currentTime = 0;
+      unlocked = true;
+    } catch(e){ /* ignored until first gesture */ }
+  }
+
+  function stop(el){ try{ el.pause(); el.currentTime = 0; }catch{} }
+  function fade(el, to=0, ms=300){
+    return new Promise(res=>{
+      const start = el.volume, t0 = performance.now();
+      function step(t){
+        const k = Math.min(1, (t - t0) / ms);
+        el.volume = start + (to - start) * k;
+        if (k < 1) requestAnimationFrame(step); else res();
+      }
+      requestAnimationFrame(step);
+    });
+  }
+
+  async function setMode(mode){ // 'search' | 'unscramble'
+    if (!unlocked) return;
+    if (mode === 'search'){
+      stop(aUns);
+      aSearch.volume = 0.0; aSearch.play(); await fade(aSearch, 0.8, 300);
+    } else {
+      stop(aSearch);
+      aUns.volume = 0.0; aUns.play(); await fade(aUns, 0.9, 300);
+    }
+  }
+
+  async function playFx(kind){ // 'victory' | 'buzzer'
+    if (!unlocked) return;
+    const loop = (S.stage === 'unscramble') ? aUns : aSearch;
+    // duck the loop, play FX, restore
+    const wasPlaying = !loop.paused;
+    if (wasPlaying) await fade(loop, 0.2, 120);
+    const fx = (kind === 'victory') ? fxWin : fxLose;
+    try { fx.currentTime = 0; await fx.play(); } catch {}
+    fx.onended = async () => { if (wasPlaying) await fade(loop, (S.stage==='unscramble')?0.9:0.8, 180); };
+  }
+
+  return { userInit, setMode, playFx };
+})();
+
 /* ========= state ========= */
 const S = {
   diffName:'Easy', diff: DIFFICULTY.Easy,
@@ -534,8 +602,8 @@ function endSearchStartUnscramble(){
   $('#gridWrap').style.display='none';
   $('#unsTop').style.display='flex';
   S.stage='unscramble';
+  Snd.setMode('unscramble');
   refreshHintVisibility();
-
   buildUnscramble();
   S.time = (S.h2h ? 0 : (DIFFICULTY[S.diffName].unscrambleSecs||0));
   S.running = !!S.time;
@@ -591,6 +659,12 @@ function applySolved(byPid, bonus){
   } else {
     setUnsMsg(`Opponent solved it. You lose.`, false);
   }
+  const iAmWinner = ( (S.online ? Net.me().pid : (S.curP===0?'p1':'p2')) === byPid );
+  Snd.playFx(iAmWinner ? 'victory' : 'buzzer');
+  
+  // after FX, return to the calm search loop (optional small delay)
+  setTimeout(()=> { Snd.setMode('search'); }, 800);
+
   S.running=false; // stop solo timer if any
 }
 
@@ -744,7 +818,9 @@ $('#btnJoinRoom').onclick = async ()=>{
 };
 
 /* ========= UI wiring ========= */
-$('#btnStart').onclick = ()=>{ buildGame(); tick(); };
+//$('#btnStart').onclick = ()=>{ buildGame(); tick(); };
+$('#btnStart').onclick = ()=>{ Snd.userInit(); Snd.setMode('search'); buildGame(); tick(); };
+
 $('#btnCfg').onclick = ()=>{
   $('#cfgMode').value = S.online? 'h2h_online' : (S.h2h? 'h2h_local':'solo');
   $('#cfgDiff').value = S.diffName;
@@ -764,4 +840,5 @@ setMode('solo'); setDifficulty('Easy'); buildGame(); layout(); tick();
 </script>
 </body>
 </html>
+
 
