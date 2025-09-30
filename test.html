@@ -652,7 +652,7 @@ function applySolved(byPid, bonus){
   scoreBonus(bonus, winnerIdx);
 
   const mePid = S.online ? (Net.me().pid) : (S.curP===0?'p1':'p2'); // approx for local
-  const iAmWinner = (mePid === byPid);
+  //const iAmWinner = (mePid === byPid);
 
   if (iAmWinner){
     setUnsMsg(bonus>0 ? `Correct! +${bonus} ⭐ to P${winnerIdx+1}` : `Correct!`, true);
@@ -840,5 +840,6 @@ setMode('solo'); setDifficulty('Easy'); buildGame(); layout(); tick();
 </script>
 </body>
 </html>
+
 
 
