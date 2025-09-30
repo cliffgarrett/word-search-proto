@@ -564,7 +564,7 @@ function buildUnscramble(){
   });
 }
 function pickFromBank(i){
-  if (S.h2h && S.owner==null) return;
+  //if (S.h2h && S.owner==null) return;
   const btn = $('#unsBank').querySelector(`.chipL[data-i="${i}"]`);
   if (!btn || btn.disabled) return;
   const k = S.input.length; if (k >= PUZZLE_BASE.finalAnswer.length) return;
@@ -764,3 +764,4 @@ setMode('solo'); setDifficulty('Easy'); buildGame(); layout(); tick();
 </script>
 </body>
 </html>
+
