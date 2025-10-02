@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Quick Image → Puzzle (with grayscale backing)</title>
+<style>
+  :root{ --bord:#111; --ui:#1c1f26; --fg:#e9eef4; }
+  html,body{margin:0;height:100%;background:#0d0f13;color:var(--fg);
+    font-family:system-ui,-apple-system,Segoe UI,Inter,Roboto,Helvetica,Arial,sans-serif;}
+  header{display:flex;gap:.6rem;align-items:center;flex-wrap:wrap;
+    padding:.7rem .9rem;background:linear-gradient(#13161c,#101218);}
+  header .chip{background:var(--ui);border:1px solid #232733;border-radius:12px;
+    padding:.45rem .65rem;display:flex;gap:.45rem;align-items:center}
+  header input, header select, header button{
+    background:#151923;color:var(--fg);border:1px solid #2a3140;border-radius:10px;
+    padding:.4rem .6rem;font-weight:600}
+  header button{cursor:pointer}
+  main{display:grid;grid-template-columns:1fr;place-items:center;padding:1rem}
+
+  /* Board */
+  .board-wrap{width:min(92vw,900px); aspect-ratio:4/5; position:relative;
+    background:#0a0d12;border-radius:14px;border:1px solid #222; box-shadow:0 20px 60px rgba(0,0,0,.35);}
+  .board{position:absolute; inset:12px; border-radius:10px; overflow:hidden; background:#000; border:1px solid #2a2f3a;}
+  .base-gray{position:absolute; inset:0; object-fit:cover; width:100%; height:100%;
+    filter:grayscale(1) contrast(1.1) brightness(.8); opacity:.55; user-select:none; pointer-events:none;}
+  .pieces{position:absolute; inset:0}
+
+  /* Each piece is a div with a background-image and correct background-position */
+  .piece{position:absolute; box-sizing:border-box; border:1px solid rgba(0,0,0,.20);
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,.06);
+    transition: transform .12s ease, opacity .12s ease;
+    will-change: transform, opacity; cursor:pointer; border-radius:6px;}
+  .piece:hover{ transform: translateY(-1px) scale(1.01); }
+  .piece.hidden{ opacity:0; pointer-events:auto; } /* hidden to reveal grayscale */
+
+  /* Controls row */
+  .controls{display:flex;gap:.5rem;flex-wrap:wrap; margin-top:.6rem}
+</style>
+</head>
+<body>
+  <header>
+    <div class="chip">Image:
+      <input type="file" id="file" accept="image/*">
+    </div>
+    <div class="chip">Rows:
+      <select id="rows">
+        <option>3</option><option selected>4</option><option>5</option><option>6</option><option>8</option>
+      </select>
+    </div>
+    <div class="chip">Cols:
+      <select id="cols">
+        <option>3</option><option selected>6</option><option>7</option><option>8</option><option>10</option>
+      </select>
+    </div>
+    <button id="rebuild">Build Puzzle</button>
+  </header>
+
+  <main>
+    <div class="board-wrap">
+      <div class="board" id="board">
+        <img id="baseGray" class="base-gray" alt="">
+        <div class="pieces" id="pieces"></div>
+      </div>
+    </div>
+
+    <div class="controls">
+      <button id="hideAll">Hide All</button>
+      <button id="revealAll">Reveal All</button>
+      <button id="revealOne">Reveal Next Random</button>
+    </div>
+  </main>
+
+<script>
+(() => {
+  const DEFAULT_IMG =
+    'https://images.unsplash.com/photo-1446776811953-b23d57bd21aa?q=80&w=1200&auto=format&fit=crop'; // placeholder
+  const board    = document.getElementById('board');
+  const baseGray = document.getElementById('baseGray');
+  const piecesEl = document.getElementById('pieces');
+  const rowsSel  = document.getElementById('rows');
+  const colsSel  = document.getElementById('cols');
+  const fileIn   = document.getElementById('file');
+
+  let imgURL = DEFAULT_IMG;
+  let rows = +rowsSel.value, cols = +colsSel.value;
+
+  function setImage(url){
+    imgURL = url;
+    baseGray.src = imgURL;
+    // pieces will use this as their background-image
+    piecesEl.style.setProperty('--img', `url("${imgURL}")`);
+  }
+
+  // Build pieces without slicing files: one big background, each piece shows correct window
+  function buildPuzzle(){
+    rows = +rowsSel.value; cols = +colsSel.value;
+    piecesEl.innerHTML = '';
+
+    // Wait for image natural size to compute aspect if needed (board uses CSS aspect already)
+    const img = new Image();
+    img.onload = () => {
+      const w = piecesEl.clientWidth;
+      const h = piecesEl.clientHeight;
+      const pw = w / cols;
+      const ph = h / rows;
+
+      for (let r=0; r<rows; r++){
+        for (let c=0; c<cols; c++){
+          const d = document.createElement('div');
+          d.className = 'piece';
+          d.style.left   = (c * pw) + 'px';
+          d.style.top    = (r * ph) + 'px';
+          d.style.width  = pw + 'px';
+          d.style.height = ph + 'px';
+
+          // show the correct slice of the full image
+          d.style.backgroundImage  = `url("${imgURL}")`;
+          d.style.backgroundSize   = `${w}px ${h}px`;
+          d.style.backgroundPosition = `${-c*pw}px ${-r*ph}px`;
+          d.dataset.idx = r*cols + c;
+
+          // click toggles hidden ↔ shown
+          d.addEventListener('click', () => {
+            d.classList.toggle('hidden');
+          });
+
+          piecesEl.appendChild(d);
+        }
+      }
+    };
+    img.src = imgURL;
+  }
+
+  // Controls
+  document.getElementById('rebuild').onclick = buildPuzzle;
+  document.getElementById('hideAll').onclick = () => {
+    piecesEl.querySelectorAll('.piece').forEach(p => p.classList.add('hidden'));
+  };
+  document.getElementById('revealAll').onclick = () => {
+    piecesEl.querySelectorAll('.piece').forEach(p => p.classList.remove('hidden'));
+  };
+  document.getElementById('revealOne').onclick = () => {
+    const hidden = [...piecesEl.querySelectorAll('.piece.hidden')];
+    if (!hidden.length) return;
+    const pick = hidden[(Math.random()*hidden.length)|0];
+    pick.classList.remove('hidden');
+    pick.animate([{opacity:0},{opacity:1}], {duration:180, easing:'ease-out'});
+  };
+
+  // File upload
+  fileIn.onchange = e => {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    const url = URL.createObjectURL(f);
+    setImage(url);
+    buildPuzzle();
+  };
+
+  // initial
+  setImage(imgURL);
+  // ensure pieces fit board at various sizes
+  const resizeObserver = new ResizeObserver(() => buildPuzzle());
+  resizeObserver.observe(board);
+
+  // first build
+  buildPuzzle();
+})();
+</script>
+</body>
+</html>
