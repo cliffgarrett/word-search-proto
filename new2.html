@@ -347,6 +347,14 @@ function setupGridSize(){
   }
 }
 
+function sizeCells(){
+  const gap = 10;                  // MUST match CSS gap value
+  const cols = S.cols;
+  const w = gridEl.clientWidth;    // actual inner pixel width of the grid
+  const cell = Math.min(68, Math.floor((w - gap*(cols-1)) / cols)); // cap like before
+  gridEl.style.setProperty('--cell', cell + 'px');
+}
+  
 /* ---------- Build / place ---------- */
 function buildEmpty(){ S.grid = Array(S.rows*S.cols).fill(''); }
 function allowedDirs(){ return [[0,1],[1,0],[1,1],[1,-1],[-1,1],[-1,-1],[0,-1],[-1,0]]; }
@@ -565,11 +573,15 @@ function startGame(){
 
   Snd.stopAll(); Snd.startLoop();
 }
-addEventListener('resize', setupGridSize);
-addEventListener('orientationchange', ()=> setTimeout(setupGridSize, 120));
+renderGrid();
+sizeCells();
+
+addEventListener('resize', sizeCells);
+addEventListener('orientationchange', ()=> setTimeout(sizeCells, 80));
 </script>
 </body>
 </html>
+
 
 
 
