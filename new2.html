@@ -2,7 +2,11 @@
 <html lang="en">
 <head>
 <meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<style>
+  /* stop iOS font inflation */
+  html { -webkit-text-size-adjust:100%; text-size-adjust:100%; }
+</style>
 <title>Word-a-Roo</title>
 
 <!-- GitHub Pages: project site base (edit if repo name changes) -->
@@ -71,19 +75,6 @@ header{position:fixed;left:0;right:0;top:0;display:flex;gap:.6rem;align-items:ce
   overflow:hidden;                                 /* normal clip */
   clip-path: inset(0 round 34px);                  /* forces radius on iOS */
   -webkit-mask-image: -webkit-radial-gradient(white, black);
-}
-/* gradient frame */
-#gameCard{
-  display:flex; flex-direction:column; gap:10px;
-  width:100%; height:auto;
-  border-radius:34px; 
-  /* padding:12px; */
-  background:
-    linear-gradient(180deg, rgba(255,255,255,.10), rgba(255,255,255,.02)) padding-box,
-    linear-gradient(90deg, #1b2a8f, #a24bff) border-box;
-  border:9px solid transparent;
-  box-shadow:0 20px 50px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.12);
-  overflow:hidden;
 }
 
 /* ---------- word list (top slab) ---------- */
@@ -169,17 +160,32 @@ header{position:fixed;left:0;right:0;top:0;display:flex;gap:.6rem;align-items:ce
 .band.gold{background:#FFD166} .band.blue{background:#9ADAFE} .band.orange{background:#FFB07C}
 
 /* grid */
-#grid{ position:relative; display:grid; gap:10px; user-select:none; touch-action:none }
+/* grid */
+#grid{
+  position:relative;
+  display:grid;
+  gap:10px;                      /* keep in sync with JS 'gap' below */
+  user-select:none; touch-action:none;
+  width:100%;
+  max-width:680px;               /* hard cap so it can’t balloon */
+  margin-inline:auto;
+}
+
+/* cells: use --cell from JS, not vw */
 .cell{
   display:grid; place-items:center; background:transparent; color:#000; font-weight:900;
-  font-size:clamp(20px,5.6vw,40px);
-  width:var(--cell,56px); height:var(--cell,56px); border-radius:16px;
+  width:var(--cell,56px); height:var(--cell,56px);
+  border-radius:16px;
+
+  /* letters follow the cell size (no vw) */
+  font-size:calc(var(--cell,56px) * 0.58);
 }
 .cell.sel{ outline:3px solid #5fb5ff; outline-offset:2px; background:#f1f6ff }
+
+/* (Optional) keep your pseudo hint; if Safari misbehaves we’ll swap to overlay later */
 .cell.hint{ position:relative }
 .cell.hint::after{ content:""; position:absolute; inset:-4px; border-radius:18px; border:3px dashed #0a7bd1; animation:pulseHint 1s ease-in-out infinite }
 @keyframes pulseHint{ 0%{opacity:.2} 50%{opacity:1} 100%{opacity:.2} }
-
 /* confetti */
 #confetti{position:fixed;inset:0;pointer-events:none;overflow:hidden;z-index:80}
 #confetti i{position:absolute;width:10px;height:10px;background:#fff;opacity:.9;animation:fall 1200ms linear forwards}
@@ -564,6 +570,7 @@ addEventListener('orientationchange', ()=> setTimeout(setupGridSize, 120));
 </script>
 </body>
 </html>
+
 
 
 
