@@ -301,7 +301,7 @@ const DICT = new Set(['BIRD','BUG','CLOUD','DRAGON','KITE','EMIT','TIME','TIDE',
 /* ---------- State ---------- */
 const S = {
   level:1, rows:7, cols:6, grid:[], placed:[], foundIdx:new Set(), bonusWords:new Set(),
-  dragging:false, selPath:[], settings:{ snake:true, haptics:true, tones:true, highContrast:false },
+  dragging:false, selPath:[], settings:{ snake:false, haptics:true, tones:true, highContrast:false },
   bandColors:['pink','purple','green','gold','blue','orange']
 };
 
@@ -581,6 +581,7 @@ addEventListener('orientationchange', ()=> setTimeout(sizeCells, 80));
 </script>
 </body>
 </html>
+
 
 
 
