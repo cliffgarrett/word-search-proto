@@ -4,6 +4,10 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
 <title>Word-a-Roo — Splash + Search (live preview, snake option, confetti)</title>
+
+<!-- For GitHub Pages project sites; edit to your repo name -->
+<base href="/word-search-proto/">
+
 <style>
   :root{
     --bg:#0c1015; --fg:#e9eef4; --gold:#BD7B09; --blue:#0986D1;
@@ -92,7 +96,7 @@
     width: 100%;
     height: 100%;
     overflow: hidden;
-    top: 10px;
+    /* top: -50px; */
 }
   /* overlays (both ignore pointer hits) */
   #bands, #bandsPreview{position:absolute;inset:18px;pointer-events:none}
@@ -229,8 +233,8 @@
 <script>
 /* ===== assets ===== */
 const ASSETS = {
-  img:   { splash:'https://raw.githubusercontent.com/cliffgarrett/word-search-proto/refs/heads/main//img/splash.png', search:'https://raw.githubusercontent.com/cliffgarrett/word-search-proto/refs/heads/main/img/search.png' },
-  audio: { splash:'https://github.com/cliffgarrett/word-search-proto/raw/refs/heads/main/audio/splash.mp3', search:'https://github.com/cliffgarrett/word-search-proto/raw/refs/heads/main/audio/search.mp3', trumpet:'https://github.com/cliffgarrett/word-search-proto/raw/refs/heads/main/audio/victory.mp3' }
+  img:   { splash:'assets/img/splash.png', search:'assets/img/search.png' },
+  audio: { splash:'assets/audio/splash.mp3', search:'assets/audio/search.mp3', trumpet:'assets/audio/trumpet.wav' }
 };
 
 /* ===== tiny audio helper ===== */
@@ -293,7 +297,7 @@ const S = {
   rows:7, cols:6, grid:[], placed:[], foundIdx:new Set(), bonusWords:new Set(),
   dragging:false, selPath:[], previewNeedsRedraw:false,
   // settings
-  settings:{ snake:false, haptics:true, tones:true, highContrast:false },
+  settings:{ snake:true, haptics:true, tones:true, highContrast:false },
   bandColors:['pink','purple','green','gold','blue','orange']
 };
 
