@@ -33,8 +33,8 @@ header{position:fixed;left:0;right:0;top:0;display:flex;gap:.6rem;align-items:ce
 #splash.hidden{display:none}
 #splash img.bg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:.9}
 #btnStart{
-  position:absolute; left:max(12px, env(safe-area-inset-left));
-  bottom:max(12px, env(safe-area-inset-bottom));
+  position:absolute; left:max(30px, env(safe-area-inset-left));
+  bottom:max(30px, env(safe-area-inset-bottom));
   appearance:none;border:none;border-radius:999px;padding:14px 22px;
   background:#0a7bd1;color:#fff;font-weight:900;letter-spacing:.02em;
   box-shadow:0 10px 30px rgba(0,0,0,.45), inset 0 -3px 0 rgba(0,0,0,.25); cursor:pointer
@@ -92,26 +92,26 @@ header{position:fixed;left:0;right:0;top:0;display:flex;gap:.6rem;align-items:ce
   border-left:1px solid rgba(0,0,0,.08); border-right:1px solid rgba(0,0,0,.08);
 }
 /* fine-tune vertical alignment of the message zone */
-#msgArea {
-  position: relative;
-  display: grid;
-  place-items: center;
-  min-height: 52px;
-  text-align: center;
-  font-weight: 900;
-  transform: translateY(-10px);  /* raise messages slightly */
+#msgArea{
+  position:relative;
+  min-height:72px;                     /* stable lane height */
+  display:grid; place-items:center; gap:6px; text-align:center;
+  background:linear-gradient(180deg, rgba(130,130,160,.45), rgba(130,130,160,.2));
+  border-left:1px solid rgba(0,0,0,.08); border-right:1px solid rgba(0,0,0,.08);
 }
 
-#liveWord{ display:inline-flex; gap:.05em; letter-spacing:.1em;
-  font-size:clamp(28px,7vw,48px); color:#fff; text-shadow:0 2px 6px rgba(0,0,0,.5) }
+#liveWord{
+  display:inline-flex; gap:.05em; letter-spacing:.1em;
+  font-size:clamp(28px,7vw,48px); color:#fff; text-shadow:0 2px 6px rgba(0,0,0,.5)
+}
 #liveWord .ch{ display:inline-block; transform-origin:50% 60%; animation:pop .22s cubic-bezier(.2,.8,.2,1) }
 @keyframes pop{ 0%{transform:scale(.6);opacity:0} 60%{transform:scale(1.12);opacity:1} 100%{transform:scale(1)} }
 #msgStack{ display:grid; gap:6px }
-#liveWord, #msgStack {
-  transform: translateY(-4px); /* optional tiny extra lift */
-}
-#liveWord{
-  transform: translateY(4px); /* optional tiny extra lift */
+/* praise overlays the lane — no layout impact */
+#msgStack{
+  position:absolute; inset:0;
+  display:grid; align-content:center; justify-items:center; gap:6px;
+  pointer-events:none;
 }
 .msg{ background:rgba(0,0,0,.78); color:#fff; border-radius:999px; padding:6px 14px; font-weight:900; animation:riseFade .9s ease forwards }
 .msg.good{ background:#0a7bd1 } .msg.bad{ background:#b00020 } .msg.mega{ font-size:clamp(28px,8vw,56px); letter-spacing:.06em; padding:8px 18px }
@@ -124,13 +124,19 @@ header{position:fixed;left:0;right:0;top:0;display:flex;gap:.6rem;align-items:ce
   background:#fff; border:1px solid rgba(0,0,0,.12);
   border-top-left-radius:8px; border-top-right-radius:8px;
   border-bottom-left-radius:24px; border-bottom-right-radius:24px;
-  padding:18px; overflow:hidden;               /* padding must match bands inset */
-  display:grid; place-items:center;            /* center grid inside card */
+  padding:18px; 
+  overflow:hidden;                     /* fallback clip */
+  /* enforce clipping of absolutely-positioned children (iOS fix) */
+  clip-path: inset(0 round 8px 8px 24px 24px);
+  -webkit-mask-image: -webkit-radial-gradient(white, black); /* belt & suspenders */
+  display:grid; place-items:center;
   box-shadow:0 0 0 1px rgba(0,0,0,.02) inset, 0 10px 24px rgba(0,0,0,.08);
 }
 
 /* overlays for pills */
-#bands, #bandsPreview{ position:absolute; inset:18px; pointer-events:none }
+#bands, #bandsPreview{
+  position:absolute; inset:18px; pointer-events:none;
+}
 .band{ position:absolute; border-radius:9999px; opacity:.92 }
 .band.preview{ background:#cdb8ff; opacity:.55; filter:saturate(1.1) }
 .band.pink{background:#F59CB0} .band.purple{background:#C8B6FF} .band.green{background:#A8F5A6}
