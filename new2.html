@@ -437,7 +437,11 @@ function sizeCells(){
   // also keep the grid-template-columns in sync if you prefer fixed pixels:
   gridEl.style.gridTemplateColumns = `repeat(${cols}, ${cell}px)`;
 }
-  
+
+function cellPx(){
+  const v = getComputedStyle(gridEl).getPropertyValue('--cell');
+  return Math.max(20, parseFloat(v)||56);
+}  
 /* ---------- Build / place ---------- */
 function buildEmpty(){ S.grid = Array(S.rows*S.cols).fill(''); }
 function allowedDirs(){ return [[0,1],[1,0],[1,1],[1,-1],[-1,1],[-1,-1],[0,-1],[-1,0]]; }
@@ -568,26 +572,51 @@ gridEl.addEventListener('pointerdown', e=>{
 },{passive:false});
 
 gridEl.addEventListener('pointermove', e=>{
-  if (!S.dragging || e.pointerId!==activePointer) return;
+  if (!S.dragging || e.pointerId !== activePointer) return;
 
   const lastId = S.selPath[S.selPath.length-1];
-  const { x:lx, y:ly } = cellCenterClient(lastId);
+  const lastR  = gridEl.children[lastId].getBoundingClientRect();
+  const lastCx = lastR.left + lastR.width/2;
+  const lastCy = lastR.top  + lastR.height/2;
 
-  // snap pointer vector → an 8-way grid direction
-  const [dr, dc] = snapDir(e.clientX - lx, e.clientY - ly);
-  if (dr===0 && dc===0) return;
+  // Build neighbor candidates (8-way)
+  const dirs = [[1,0],[-1,0],[0,1],[0,-1],[1,1],[-1,-1],[1,-1],[-1,1]];
+  const candidates = [];
+  for (const [dr,dc] of dirs){
+    const [r,c] = rcOf(lastId);
+    const rr=r+dr, cc=c+dc;
+    if (!inb(rr,cc)) continue;
+    const nid = idx(rr,cc);
+    // allow backtrack one step but not revisiting old cells
+    const prev = S.selPath[S.selPath.length-2];
+    if (nid !== prev && S.selPath.includes(nid)) continue;
 
-  // turning? only allow if we've gone enough cells straight
-  const turning = (S.curDir[0] || S.curDir[1]) && (dr!==S.curDir[0] || dc!==S.curDir[1]);
+    const nb = gridEl.children[nid].getBoundingClientRect();
+    const nCx = nb.left + nb.width/2;
+    const nCy = nb.top  + nb.height/2;
+    const dx = e.clientX - nCx;
+    const dy = e.clientY - nCy;
+    const dist2 = dx*dx + dy*dy;
+    candidates.push({ nid, dr, dc, dist2 });
+  }
+  if (!candidates.length) return;
+
+  // Choose the neighbor whose center is closest to the finger
+  candidates.sort((a,b)=> a.dist2 - b.dist2);
+  const best = candidates[0];
+
+  // Gate: only advance if you're reasonably close to that neighbor
+  const d = Math.sqrt(best.dist2);
+  const threshold = cellPx()*0.55; // tweak 0.5–0.65 to taste
+  if (d > threshold) return;
+
+  // Hysteresis: require some straight cells before allowing a turn
+  const turning = (S.curDir[0] || S.curDir[1]) && (best.dr!==S.curDir[0] || best.dc!==S.curDir[1]);
   if (turning && S.segLen < S.minTurnLen) return;
 
-  // candidate next cell in that snapped direction
-  const nextId = neighborInDir(lastId, dr, dc);
-  if (nextId < 0) return;
-
-  // backtrack one step
+  // Handle backtrack
   const prev = S.selPath[S.selPath.length-2];
-  if (prev!=null && nextId===prev){
+  if (prev!=null && best.nid===prev){
     S.selPath.pop();
     if (S.segLen>0) S.segLen--;
     if (S.segLen===0) S.curDir=[0,0];
@@ -595,32 +624,16 @@ gridEl.addEventListener('pointermove', e=>{
     return;
   }
 
-  // disallow revisiting any earlier cell
-  if (S.selPath.includes(nextId)) return;
-
-  // straight-only mode when snake is off
+  // Straight-only mode when snake is off
   if (!S.settings.snake && S.selPath.length>=1){
-    if (S.curDir[0]===0 && S.curDir[1]===0) {
-      // lock first chosen direction
-      S.curDir=[dr,dc];
-    } else if (dr!==S.curDir[0] || dc!==S.curDir[1]) {
-      return;
-    }
+    if (S.curDir[0]===0 && S.curDir[1]===0){ S.curDir=[best.dr,best.dc]; }
+    else if (best.dr!==S.curDir[0] || best.dc!==S.curDir[1]) return;
   }
 
-  // accept the step
-  S.selPath.push(nextId);
-
-  // update segment / direction
-  if (S.curDir[0]===dr && S.curDir[1]===dc) {
-    S.segLen++;
-  } else {
-    S.curDir=[dr,dc];
-    S.segLen=1;
-  }
-
-  // optional soft cap
-  if (S.selPath.length>18) S.selPath.length = 18;
+  // Accept step
+  S.selPath.push(best.nid);
+  if (S.curDir[0]===best.dr && S.curDir[1]===best.dc) S.segLen++;
+  else { S.curDir=[best.dr,best.dc]; S.segLen=1; }
 
   updateCellSelection(); redrawPreview(); updateLiveWord();
   Snd.haptic(6); Snd.tone(300 + S.selPath.length*60, 0.05);
@@ -715,6 +728,7 @@ addEventListener('orientationchange', ()=> setTimeout(sizeCells, 80));
 </script>
 </body>
 </html>
+
 
 
 
