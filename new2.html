@@ -222,6 +222,25 @@ header{position:fixed;left:0;right:0;top:0;display:flex;gap:.6rem;align-items:ce
   .panel{background:#16181d;color:#fff;border:1px solid rgba(255,255,255,.12);border-radius:18px; padding:16px; width:min(92vw,460px)}
   .row{display:flex;align-items:center;justify-content:space-between;padding:10px 6px}
   .panel .close{margin-top:10px;width:100%}
+/* game container: keep a little breathing room at the bottom */
+#gameWrap{
+  height:calc(100svh - 56px - max(12px, env(safe-area-inset-bottom)));
+}
+
+/* message lane: smaller default height */
+#msgArea{
+  min-height:clamp(44px, 8vw, 64px);
+}
+
+/* card: slightly tighter vertical padding on phones */
+@media (max-width: 420px){
+  .card{ padding:14px 18px 16px; }
+}
+
+/* grid: tighter gap on small screens */
+@media (max-width: 420px){
+  #grid{ gap:8px; }
+}
 </style>
 </head>
 <body>
@@ -329,7 +348,9 @@ const S = {
   dragging:false, selPath:[], settings:{ snake:false, haptics:true, tones:true, highContrast:false },
   bandColors:['pink','purple','green','gold','blue','orange']
 };
-
+S.curDir = [0,0];        // current snapped direction (dr,dc)
+S.segLen = 0;            // cells traveled in current segment
+S.minTurnLen = 2;        // require 2 cells straight before turning
 /* ---------- DOM ---------- */
 const $ = s => document.querySelector(s);
 const splash = $('#splash'), gridEl = $('#grid'), bandsEl = $('#bands'), previewEl = $('#bandsPreview');
@@ -340,7 +361,41 @@ const R = n => Math.floor(Math.random()*n);
 const idx=(r,c)=> r*S.cols+c, inb=(r,c)=> r>=0&&c>=0&&r<S.rows&&c<S.cols;
 const rcOf=id=> [(id/S.cols)|0, id%S.cols];
 function lettersOf(path){ return path.map(id=>S.grid[id]).join(''); }
+// screen-space center for a grid cell
+// center point of a cell in client coords
+function cellCenterClient(id){
+  const r = gridEl.children[id].getBoundingClientRect();
+  return { x: r.left + r.width/2, y: r.top + r.height/2 };
+}
+// snap any angle to one of 8 unit directions
+function snapDir(dx, dy){
+  if (dx===0 && dy===0) return [0,0];
+  const a = Math.atan2(dy, dx);              // -PI..PI
+  // 8-way bins every 45° centered on axes (±22.5° tolerance)
+  const step = Math.PI / 4;                  // 45°
+  const bin  = Math.round(a / step);
+  const dir  = bin % 8;
+  // map bin → (dr,dc)
+  const map = [
+    [ 0, 1],  // 0: →
+    [-1, 1],  // 1: ↗
+    [-1, 0],  // 2: ↑
+    [-1,-1],  // 3: ↖
+    [ 0,-1],  // 4: ←
+    [ 1,-1],  // 5: ↙
+    [ 1, 0],  // 6: ↓
+    [ 1, 1],  // 7: ↘
+  ];
+  return map[(dir+8)%8];
+}
 
+// get neighbor id in given (dr,dc), or -1 if OOB
+function neighborInDir(id, dr, dc){
+  const [r,c] = rcOf(id);
+  const rr = r + dr, cc = c + dc;
+  return inb(rr,cc) ? idx(rr,cc) : -1;
+}
+  
 /* grid size to fit card width (no extra white) */
 function setupGridSize(){
   const cols = S.cols, rows = S.rows;
@@ -373,11 +428,14 @@ function setupGridSize(){
 }
 
 function sizeCells(){
-  const gap = 10;                  // MUST match CSS gap value
+  const isNarrow = gridEl.clientWidth <= 420;
+  const gap = isNarrow ? 8 : 10;     // MUST match CSS media queries
   const cols = S.cols;
-  const w = gridEl.clientWidth;    // actual inner pixel width of the grid
-  const cell = Math.min(68, Math.floor((w - gap*(cols-1)) / cols)); // cap like before
+  const w = gridEl.clientWidth;
+  const cell = Math.min(68, Math.floor((w - gap*(cols-1)) / cols));
   gridEl.style.setProperty('--cell', cell + 'px');
+  // also keep the grid-template-columns in sync if you prefer fixed pixels:
+  gridEl.style.gridTemplateColumns = `repeat(${cols}, ${cell}px)`;
 }
   
 /* ---------- Build / place ---------- */
@@ -494,29 +552,80 @@ function claim(i){
 }
 function praise(msg,type='good'){ const n=document.createElement('div'); n.className='msg '+type; n.textContent=msg; document.getElementById('msgStack').appendChild(n); setTimeout(()=>n.remove(),1100); }
 
-let activePointer=null;
+let activePointer = null;
+
 gridEl.addEventListener('pointerdown', e=>{
-  const el=e.target.closest('.cell'); if(!el) return;
-  gridEl.setPointerCapture(e.pointerId); activePointer=e.pointerId;
-  S.dragging=true; S.selPath=[+el.dataset.idx]; updateCellSelection(); redrawPreview(); updateLiveWord();
+  const el = e.target.closest('.cell'); if(!el) return;
+  gridEl.setPointerCapture(e.pointerId); activePointer = e.pointerId;
+
+  S.dragging = true;
+  S.selPath  = [+el.dataset.idx];
+  S.curDir   = [0,0];
+  S.segLen   = 0;
+
+  updateCellSelection(); redrawPreview(); updateLiveWord();
   e.preventDefault();
 },{passive:false});
-gridEl.addEventListener('pointermove', e=>{
-  if(!S.dragging||e.pointerId!==activePointer) return;
-  const el=document.elementFromPoint(e.clientX,e.clientY)?.closest('.cell'); if(!el) return;
-  const id=+el.dataset.idx, last=S.selPath[S.selPath.length-1]; if (id===last) return;
-  const prev=S.selPath[S.selPath.length-2]; if (prev!=null && id===prev){ S.selPath.pop(); updateCellSelection(); redrawPreview(); updateLiveWord(); return; }
-  if (!neighbors(last).includes(id)) return;
 
-  if (!S.settings.snake && S.selPath.length>=2){
-    const [r0,c0]=rcOf(S.selPath[0]), [r1,c1]=rcOf(S.selPath[1]), [r,c]=rcOf(id), [rp,cp]=rcOf(last);
-    const dr=Math.sign(r1-r0), dc=Math.sign(c1-c0);
-    if (Math.sign(r-rp)!==dr || Math.sign(c-cp)!==dc) return;
+gridEl.addEventListener('pointermove', e=>{
+  if (!S.dragging || e.pointerId!==activePointer) return;
+
+  const lastId = S.selPath[S.selPath.length-1];
+  const { x:lx, y:ly } = cellCenterClient(lastId);
+
+  // snap pointer vector → an 8-way grid direction
+  const [dr, dc] = snapDir(e.clientX - lx, e.clientY - ly);
+  if (dr===0 && dc===0) return;
+
+  // turning? only allow if we've gone enough cells straight
+  const turning = (S.curDir[0] || S.curDir[1]) && (dr!==S.curDir[0] || dc!==S.curDir[1]);
+  if (turning && S.segLen < S.minTurnLen) return;
+
+  // candidate next cell in that snapped direction
+  const nextId = neighborInDir(lastId, dr, dc);
+  if (nextId < 0) return;
+
+  // backtrack one step
+  const prev = S.selPath[S.selPath.length-2];
+  if (prev!=null && nextId===prev){
+    S.selPath.pop();
+    if (S.segLen>0) S.segLen--;
+    if (S.segLen===0) S.curDir=[0,0];
+    updateCellSelection(); redrawPreview(); updateLiveWord();
+    return;
   }
-  if (S.selPath.includes(id)) return;
-  S.selPath.push(id); if (S.selPath.length>12) return;
-  updateCellSelection(); redrawPreview(); updateLiveWord(); Snd.haptic(8); Snd.tone(300+S.selPath.length*60,0.05);
+
+  // disallow revisiting any earlier cell
+  if (S.selPath.includes(nextId)) return;
+
+  // straight-only mode when snake is off
+  if (!S.settings.snake && S.selPath.length>=1){
+    if (S.curDir[0]===0 && S.curDir[1]===0) {
+      // lock first chosen direction
+      S.curDir=[dr,dc];
+    } else if (dr!==S.curDir[0] || dc!==S.curDir[1]) {
+      return;
+    }
+  }
+
+  // accept the step
+  S.selPath.push(nextId);
+
+  // update segment / direction
+  if (S.curDir[0]===dr && S.curDir[1]===dc) {
+    S.segLen++;
+  } else {
+    S.curDir=[dr,dc];
+    S.segLen=1;
+  }
+
+  // optional soft cap
+  if (S.selPath.length>18) S.selPath.length = 18;
+
+  updateCellSelection(); redrawPreview(); updateLiveWord();
+  Snd.haptic(6); Snd.tone(300 + S.selPath.length*60, 0.05);
 },{passive:false});
+  
 function endSelection(){
   if(!S.dragging) return; S.dragging=false; activePointer=null;
   const w = lettersOf(S.selPath), matchIdx = tryMatchCurrent(S.selPath);
@@ -606,6 +715,7 @@ addEventListener('orientationchange', ()=> setTimeout(sizeCells, 80));
 </script>
 </body>
 </html>
+
 
 
 
