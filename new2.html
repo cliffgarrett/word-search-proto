@@ -52,6 +52,21 @@ header{position:fixed;left:0;right:0;top:0;display:flex;gap:.6rem;align-items:ce
 
 /* ===================== game container (NOT full-screen) ===================== */
 /* sits under the header, centered, with bottom breathing room for future UI */
+
+/* centers the whole card under the header and gives it a fixed play area */
+#gameWrap{
+  position:fixed;
+  left:50%;
+  top:56px;                                /* header height */
+  transform:translateX(-50%);
+  width:var(--panelW);                      /* your clamp(320px,92vw,760px) */
+  height:calc(100svh - 56px - 18px);        /* stable viewport height (iOS-safe) */
+  display:flex;
+  justify-content:center;
+  align-items:flex-start;
+  z-index:1;
+}
+  
 /* gradient frame */
 #gameCard{
   display:flex;
@@ -86,7 +101,13 @@ header{position:fixed;left:0;right:0;top:0;display:flex;gap:.6rem;align-items:ce
   border-bottom-left-radius:8px; border-bottom-right-radius:8px;
   box-shadow:0 1px 0 rgba(0,0,0,.06) inset, 0 6px 16px rgba(0,0,0,.05);
 }
-#wordList{ display:grid; grid-template-columns:repeat(3,1fr); gap:8px; text-align:center }
+#wordList{
+  display:grid;
+  grid-template-columns:repeat(3, 1fr);
+  gap:8px;
+  text-align:center;
+  white-space:nowrap;     /* keep each word intact */
+}
 #wordList b{ font-weight:900 } #wordList .done{ opacity:.35 }
 
 /* ---------- messages lane (middle) ---------- */
@@ -269,11 +290,15 @@ const Snd = (() => {
 
   async function unlockOne(src){ try{ const a=new Audio(src); await a.play(); a.pause(); }catch{} }
   async function userInit(){
-    if (unlocked) return;
-    await Promise.all([ASSETS.audio.splash, ASSETS.audio.search, ASSETS.audio.victory].map(unlockOne));
-    ctx = new (window.AudioContext||window.webkitAudioContext)();
-    unlocked=true;
-  }
+  if (unlocked) return;
+  try{
+    const ctx = new (window.AudioContext||window.webkitAudioContext)();
+    await ctx.resume();                 // silent unlock
+    // just preload (no play)
+    [aSplash,aLoop,aWin].forEach(a=>a.load());
+  }catch{}
+  unlocked = true;
+}
   async function playSplash(){ try{ aSplash.currentTime=0; await aSplash.play(); }catch{} }
   async function startLoop(){ try{ aLoop.currentTime=0; await aLoop.play(); }catch{} }
   function stopAll(){ [aSplash,aLoop,aWin].forEach(a=>{ try{a.pause()}catch{} }); }
@@ -569,18 +594,19 @@ function startGame(){
 
   S.grid.length=0; S.placed.length=0; S.foundIdx.clear?.(); S.bonusWords.clear?.();
   buildEmpty(); for(const w of WORDS) tryPlaceStraight(w); fillRandom();
-  renderWords(); renderGrid(); clearBands(); clearPreview(); [...gridEl.children].forEach(c=>c.classList.remove('hint'));
+  renderWords(); renderGrid(); sizeCells();       // <— add this
+  clearBands(); clearPreview();
+  [...gridEl.children].forEach(c=>c.classList.remove('hint'));
 
   Snd.stopAll(); Snd.startLoop();
 }
-renderGrid();
-sizeCells();
 
 addEventListener('resize', sizeCells);
 addEventListener('orientationchange', ()=> setTimeout(sizeCells, 80));
 </script>
 </body>
 </html>
+
 
 
 
