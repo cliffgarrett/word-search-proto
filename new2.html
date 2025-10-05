@@ -241,9 +241,69 @@ header{position:fixed;left:0;right:0;top:0;display:flex;gap:.6rem;align-items:ce
 @media (max-width: 420px){
   #grid{ gap:8px; }
 }
+
+/* ===== Lava lamp background ===== */
+:root{
+  /* palette you can tune */
+  --lava-bg:#0b0b1a;
+  --lava-a:#ff3bc0;   /* magenta */
+  --lava-b:#b66bff;   /* purple  */
+  --lava-c:#4ecbff;   /* soft cyan accents */
+}
+
+#lava{
+  position:fixed; inset:0; z-index:0; overflow:hidden;
+  background:
+    radial-gradient(120vmax 120vmax at 10% 10%, #120a2a 0, #0a0e1a 40%, var(--lava-bg) 70%);
+}
+
+/* A single blurred layer, with additive blending for “glow” */
+#lava .blob{
+  position:absolute;
+  width:42vmax; height:42vmax;          /* big, so it feels soft */
+  border-radius:50%;
+  filter:blur(40px);
+  opacity:.70;
+  mix-blend-mode:screen;
+  will-change:transform;
+  animation:drift var(--t,28s) ease-in-out infinite alternate;
+  background:
+    radial-gradient(55% 55% at 35% 35%, var(--c1, var(--lava-a)) 0 55%, transparent 60%),
+    radial-gradient(50% 50% at 70% 65%, var(--c2, var(--lava-b)) 0 55%, transparent 60%);
+}
+
+/* different paths / speeds / colors for variety */
+#lava .b1{ --c1:var(--lava-a); --c2:var(--lava-b); --t:32s; --x1:-10vw; --y1:-15vh; --x2:15vw;  --y2:25vh;  }
+#lava .b2{ --c1:var(--lava-b); --c2:var(--lava-a); --t:26s; --x1:60vw;  --y1:-20vh; --x2:30vw;  --y2:15vh;  }
+#lava .b3{ --c1:var(--lava-a); --c2:var(--lava-c); --t:34s; --x1:10vw;  --y1:70vh;  --x2:-10vw; --y2:35vh;  }
+#lava .b4{ --c1:var(--lava-b); --c2:var(--lava-c); --t:29s; --x1:75vw;  --y1:60vh;  --x2:55vw;  --y2:20vh;  }
+#lava .b5{ --c1:var(--lava-c); --c2:var(--lava-a); --t:38s; --x1:-20vw; --y1:40vh;  --x2:20vw;  --y2:-10vh; }
+
+/* motion that “morphs”: translate + slow scale + slight rotate */
+@keyframes drift{
+  0%   { transform: translate(var(--x1),var(--y1)) scale(0.9) rotate(0deg); }
+  50%  { transform: translate(calc((var(--x1) + var(--x2))/2),
+                               calc((var(--y1) + var(--y2))/2))
+                               scale(1.05) rotate(10deg); }
+  100% { transform: translate(var(--x2),var(--y2)) scale(0.95) rotate(20deg); }
+}
+
+/* accessibility: reduce motion → static, dimmer background */
+@media (prefers-reduced-motion: reduce){
+  #lava .blob{ animation:none; opacity:.45; }
+}
+
 </style>
 </head>
 <body>
+<!-- Animated lava-lamp background -->
+<div id="lava" aria-hidden="true">
+  <div class="blob b1"></div>
+  <div class="blob b2"></div>
+  <div class="blob b3"></div>
+  <div class="blob b4"></div>
+  <div class="blob b5"></div>
+</div>
 
 <!-- Splash -->
 <section id="splash" aria-label="Splash">
@@ -739,9 +799,7 @@ function startGame(){
   splash.classList.add('hidden');
   gameWrap.classList.remove('hide');
 
-  document.body.style.backgroundImage = `url(${ASSETS.img.search})`;
-  document.body.style.backgroundSize='cover';
-  document.body.style.backgroundPosition='center';
+  document.getElementById('lava').style.display = 'block';
 
   S.grid.length=0; S.placed.length=0; S.foundIdx.clear?.(); S.bonusWords.clear?.();
   buildEmpty(); for(const w of WORDS) tryPlaceStraight(w); fillRandom();
@@ -754,9 +812,15 @@ function startGame(){
 
 addEventListener('resize', sizeCells);
 addEventListener('orientationchange', ()=> setTimeout(sizeCells, 80));
+
+// on load
+document.getElementById('lava').style.display = 'none';
+
+  
 </script>
 </body>
 </html>
+
 
 
 
