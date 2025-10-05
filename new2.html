@@ -350,7 +350,7 @@ const S = {
 };
 S.curDir = [0,0];        // current snapped direction (dr,dc)
 S.segLen = 0;            // cells traveled in current segment
-S.minTurnLen = 2;        // require 2 cells straight before turning
+S.minTurnLen = 1;        // require 2 cells straight before turning
 /* ---------- DOM ---------- */
 const $ = s => document.querySelector(s);
 const splash = $('#splash'), gridEl = $('#grid'), bandsEl = $('#bands'), previewEl = $('#bandsPreview');
@@ -640,17 +640,46 @@ gridEl.addEventListener('pointermove', e=>{
 },{passive:false});
   
 function endSelection(){
-  if(!S.dragging) return; S.dragging=false; activePointer=null;
-  const w = lettersOf(S.selPath), matchIdx = tryMatchCurrent(S.selPath);
-  if (matchIdx>=0){ claim(matchIdx); }
-  else{
-    if (S.selPath.length>=3 && DICT.has(w) && !S.placed.some(p=>p.text===w || p.text===w.split('').reverse().join(''))){
-      S.bonusWords.add(w); drawPillForPath(S.selPath,'gold'); praise('Great find! '+w);
-    }else{ praise('Not a word','bad'); }
+  if (!S.dragging) return;
+  S.dragging = false; activePointer = null;
+
+  // --- FULL UNDO: cancel if only 0–1 cells selected ---
+  if (S.selPath.length <= 1){
+    S.selPath.length = 0;
+    S.curDir = [0,0];
+    S.segLen = 0;
+    updateCellSelection();
+    clearPreview();
+    updateLiveWord();
+    return;       // <- nothing happens
   }
-  S.selPath.length=0; updateCellSelection(); clearPreview(); updateLiveWord();
+
+  // normal resolution flow below
+  const w = lettersOf(S.selPath);
+  const matchIdx = tryMatchCurrent(S.selPath);
+  if (matchIdx >= 0){
+    claim(matchIdx);
+  } else {
+    // optional: only judge “not a word” when len >= 3
+    if (S.selPath.length >= 3 && DICT.has(w) &&
+        !S.placed.some(p => p.text===w || p.text===w.split('').reverse().join(''))){
+      S.bonusWords.add(w);
+      drawPillForPath(S.selPath,'gold');
+      praise('Great find! '+w);
+    } else {
+      // comment this out if you want silence for any miss
+      praise('Not a word','bad');
+    }
+  }
+
+  S.selPath.length = 0;
+  S.curDir = [0,0];
+  S.segLen = 0;
+  updateCellSelection();
+  clearPreview();
+  updateLiveWord();
 }
-addEventListener('pointerup', endSelection, {passive:true});
+  addEventListener('pointerup', endSelection, {passive:true});
 addEventListener('pointercancel', ()=>{ S.dragging=false; activePointer=null; S.selPath.length=0; updateCellSelection(); clearPreview(); updateLiveWord(); }, {passive:true});
 
 /* ---------- Hint ---------- */
@@ -728,6 +757,7 @@ addEventListener('orientationchange', ()=> setTimeout(sizeCells, 80));
 </script>
 </body>
 </html>
+
 
 
 
