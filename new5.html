@@ -978,13 +978,14 @@ function renderGrid(){
   }
   //setupGridSize();
   sizeGridForCurrentCard();
+}
 
 function hookLayers(){
   const card = document.querySelector('#board .card');
   previewEl = card.querySelector('#bandsPreview');
   bandsEl   = card.querySelector('#bands');
 }
-}
+
 function renderWords(){
   wordList.innerHTML='';
   WORDS.forEach((w,i)=>{
