@@ -26,6 +26,7 @@
   --bg:#0c1015; --fg:#e9eef4;
   --panelW:clamp(320px,92vw,760px);
   --panelPad:14px;
+  --spinwheelW:364px;
 }
 
 /* base */
@@ -403,8 +404,8 @@ header{position:fixed;left:0;right:0;top:0;display:flex;gap:.6rem;align-items:ce
 
 /* --- Round-A-Roo disk --- */
 #spinBox.round{
-  position:fixed; left:50%; top:56px; transform:translateX(-50%);
-  width:var(--panelW); aspect-ratio:1/1; z-index:2; /* above storm, below header */
+  position:fixed; left:50%; top:211px; transform:translateX(-50%);
+  width:var(--spinwheelW); aspect-ratio:1/1; z-index:2; /* above storm, below header */
   border-radius:50%; clip-path:circle(49.6% at 50% 50%); overflow:hidden;
   background:#fff;
 }
