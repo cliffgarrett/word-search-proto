@@ -370,10 +370,10 @@ header{position:fixed;left:0;right:0;top:0;display:flex;gap:.6rem;align-items:ce
 #board{ padding-top:4px; }
 
 /* picker */
-.picker{position:fixed; inset:0; display:grid; place-items:center; z-index:70;
-  background:rgba(0,0,0,.6)}
-.picker .pill{appearance:none;border:0;border-radius:999px;padding:14px 22px;
-  background:#0a7bd1;color:#fff;font-weight:900;margin:8px;}
+.picker { position:fixed; inset:0; display:grid; place-items:center; z-index:90; }
+.picker.hide { display:none; }
+.picker .pill { margin:.4rem 0; }
+.pill-ghost { background:transparent; border:1px solid rgba(255,255,255,.3); }
 
 /* storm canvases sit behind the game card */
 #storm{position:fixed; inset:0; z-index:0; pointer-events:none}
@@ -444,9 +444,10 @@ header{position:fixed;left:0;right:0;top:0;display:flex;gap:.6rem;align-items:ce
 <!-- MODE PICKER -->
 <div id="modePicker" class="picker hide">
   <h2>Choose a mode</h2>
-  <button id="chooseStandard"   class="pill">Classic</button>
+  <button id="chooseStandard"  class="pill">Classic</button>
   <button id="chooseLightning" class="pill">Lightning Round</button>
   <button id="chooseRound"     class="pill">Round-A-Roo</button>
+  <button id="cancelPicker"    class="pill pill-ghost">Cancel</button>
 </div>
 
 <!-- STORM LAYER (Lightning mode) -->
@@ -763,10 +764,11 @@ const WORDS = ['BIRD','BUG','CLOUD','DRAGON','KITE','EMIT'];
 const WORD_INDEX = new Map(WORDS.map((w,i)=>[w,i]));
 const DICT = new Set(['BIRD','BUG','CLOUD','DRAGON','KITE','EMIT','TIME','TIDE','TREE','STONE','RING','ROAD','RAIN','WIND','FIRE','WATER','EARTH','AIR','SUN','STAR','MOON']);
 
-const modePicker = document.getElementById('modePicker');
-const chooseStandard  = document.getElementById('chooseStandard');
-const chooseLightning = document.getElementById('chooseLightning');
-const cancelPicker    = document.getElementById('cancelPicker');
+const modePicker       = document.getElementById('modePicker');
+const chooseStandard   = document.getElementById('chooseStandard');
+const chooseLightning  = document.getElementById('chooseLightning');
+const chooseRound      = document.getElementById('chooseRound');
+const cancelPicker     = document.getElementById('cancelPicker');
 
 /* ---------- State ---------- */
 const S = {
@@ -1369,13 +1371,16 @@ $('#btnStart').onclick = async ()=>{
 };
 
 function beginMode(mode){
-  S.roundMode = mode;
-  modePicker.classList.add('hide');
+  S.roundMode = mode;           // 'standard' | 'lightning' | 'round'
+  modePicker?.classList.add('hide');
   startGame();
 }
-chooseStandard.onclick  = ()=> beginMode('standard');
-chooseLightning.onclick = ()=> beginMode('lightning');
-cancelPicker.onclick    = ()=> modePicker.classList.add('hide');
+
+// wire only if present (prevents null errors)
+chooseStandard?.addEventListener('click', () => beginMode('standard'));
+chooseLightning?.addEventListener('click', () => beginMode('lightning'));
+chooseRound?.addEventListener('click',     () => beginMode('round'));
+cancelPicker?.addEventListener('click',    () => modePicker?.classList.add('hide'));
 
 /* ---------- Start / rebuild ---------- */
   
