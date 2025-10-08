@@ -948,7 +948,7 @@ function startTwister(stepDeg=15, everyMs=1500){
   stopTwister(); twisterAngle=0;
   twisterTimer=setInterval(()=>{
     //twisterAngle = (twisterAngle + stepDeg) % 360;
-    twisterAngle = twisterAngle + stepDeg / 60;
+    twisterAngle = twisterAngle + speedDegPerSec  / 60;
     document.documentElement.style.setProperty('--angle', twisterAngle+'deg');
   }, everyMs);
 }
