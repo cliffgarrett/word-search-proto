@@ -40,7 +40,8 @@ header{position:fixed;left:0;right:0;top:0;display:flex;gap:.6rem;align-items:ce
 .chip{pointer-events:auto;background:rgba(20,20,22,.72);border:1px solid rgba(255,255,255,.12);
   backdrop-filter: blur(8px); border-radius:14px; padding:.38rem .65rem;display:flex;gap:.45rem;
   align-items:center;font-weight:800}
-
+.chip.muted{opacity:.65}
+.hide{display:none!important}
 /* ---------- splash ---------- */
 #splash{position:fixed;inset:0;background:#000}
 #splash.hidden{display:none}
@@ -388,11 +389,14 @@ header{position:fixed;left:0;right:0;top:0;display:flex;gap:.6rem;align-items:ce
 
 <!-- HUD -->
 <header>
-  <div id="btnCfg" class="chip">⚙️ Settings</div>
+  <div id="btnCfg" class="chip">⚙️ Peefs</div>
   <div id="btnHint" class="chip">💡 Hint</div>
+  <!-- add these two lines -->
+  <div id="badgeMusic" class="chip muted hide">🔇 Music Off</div>
+  <div id="badgeFX" class="chip muted hide">🔕 FX Off</div>
+  <!-- end add -->
   <div class="chip">Level <span id="lvl">1</span></div>
 </header>
-
 <!-- Lightning Round background (off by default) -->
 <div id="stormFX" aria-hidden="true" class="storm hide">
   <canvas id="sfx-c1"></canvas>
@@ -442,6 +446,9 @@ header{position:fixed;left:0;right:0;top:0;display:flex;gap:.6rem;align-items:ce
     <div class="row"><label>Haptics</label><input type="checkbox" id="optHaptics" checked></div>
     <div class="row"><label>Tones on drag</label><input type="checkbox" id="optTones" checked></div>
     <div class="row"><label>Reduced sensory</label><input type="checkbox" id="optHC"></div>
+    <div class="row"><label>Allow letter reuse (snake)</label><input type="checkbox" id="optRepeat" checked></div>
+    <div class="row"><label>Music</label><input type="checkbox" id="optMusic" checked></div>
+    <div class="row"><label>Audio FX</label><input type="checkbox" id="optFX" checked></div>
     <button class="close">Close</button>
   </div>
 </div>
@@ -558,11 +565,32 @@ const Snd = (() => {
     unlocked = true;
   }
 
-  async function playSplash(){ try{ aSplash.currentTime=0; await aSplash.play(); }catch{} }
-  async function startLoop(){ try{ aLoop.currentTime=0; await aLoop.play(); }catch{} }
-  function stopAll(){ [aSplash,aLoop,aWin,aTh1,aTh2].forEach(a=>{ try{a.pause()}catch{} }); }
-  async function victory(){ try{ aWin.currentTime=0; await aWin.play(); }catch{} }
+async function startLoop(){
+  if (!S.settings.music) return;
+  try{ aLoop.currentTime=0; await aLoop.play(); }catch{}
+}
+function stopLoop(){ try{ aLoop.pause(); }catch{} }
+function stopAll(){ [aSplash,aLoop,aWin].forEach(a=>{ try{a.pause()}catch{} }); }
 
+async function victory(){
+  if (!S.settings.fx) return;
+  try{ aWin.currentTime=0; await aWin.play(); }catch{}
+}
+
+function tone(freq=440, dur=0.06){
+  if (!S.settings.fx || !S.settings.tones || !ctx) return;
+  const o=ctx.createOscillator(), g=ctx.createGain();
+  o.connect(g).connect(ctx.destination); o.type='sine'; o.frequency.value=freq;
+  const t=ctx.currentTime; g.gain.setValueAtTime(0.0001,t);
+  g.gain.exponentialRampToValueAtTime(0.2,t+0.01);
+  g.gain.exponentialRampToValueAtTime(0.0001,t+dur);
+  o.start(t); o.stop(t+dur+0.02);
+}
+
+function haptic(ms=8){
+  if (!S.settings.fx || !S.settings.haptics) return;
+  if (navigator.vibrate) navigator.vibrate(ms);
+}
   // --- loop ducking (fade down/up) ---
   function duck(to=0.25, ms=260){
     clearTimeout(duckTimer);
@@ -625,11 +653,12 @@ const Snd = (() => {
   }
   function haptic(ms=8){ if (S.settings.haptics && navigator.vibrate) navigator.vibrate(ms); }
 
-  return { userInit, playSplash, startLoop, stopAll, victory, thunder, tone, haptic };
+  return { userInit, playSplash, startLoop, stopLoop, stopAll, victory, tone, haptic };
 })();
 
 /* ---------- Data ---------- */
 const WORDS = ['BIRD','BUG','CLOUD','DRAGON','KITE','EMIT'];
+const WORD_INDEX = new Map(WORDS.map((w,i)=>[w,i]));
 const DICT = new Set(['BIRD','BUG','CLOUD','DRAGON','KITE','EMIT','TIME','TIDE','TREE','STONE','RING','ROAD','RAIN','WIND','FIRE','WATER','EARTH','AIR','SUN','STAR','MOON']);
 
 const modePicker = document.getElementById('modePicker');
@@ -640,7 +669,8 @@ const cancelPicker    = document.getElementById('cancelPicker');
 /* ---------- State ---------- */
 const S = {
   level:1, rows:7, cols:6, grid:[], placed:[], foundIdx:new Set(), bonusWords:new Set(),
-  dragging:false, selPath:[], settings:{ snake:true, haptics:true, tones:true, highContrast:false },
+  dragging:false, selPath:[], settings:{ snake:true, haptics:true, tones:true, highContrast:false,
+           allowRepeat:true, music:true, fx:true },
   bandColors:['pink','purple','green','gold','blue','orange']
 };
 S.curDir = [0,0];        // current snapped direction (dr,dc)
@@ -845,16 +875,41 @@ function setLiveWord(str){
 function updateLiveWord(){ setLiveWord(S.selPath.length?lettersOf(S.selPath):''); }
 
 function tryMatchCurrent(sel){
-  for(let i=0;i<S.placed.length;i++){
-    if (S.foundIdx.has(i)) continue; const p=S.placed[i].path;
+  if (S.settings.snake){
+    const w  = lettersOf(sel);
+    const wr = w.split('').reverse().join('');
+    let i = WORD_INDEX.get(w);
+    if (i != null && !S.foundIdx.has(i)) return { type:'word', index:i, drawPath: sel.slice() };
+    i = WORD_INDEX.get(wr);
+    if (i != null && !S.foundIdx.has(i)) return { type:'word', index:i, drawPath: sel.slice().reverse() };
+    return null;
+  }
+  // straight mode (your old behavior)
+  for (let i=0;i<S.placed.length;i++){
+    const wordIdx = WORD_INDEX.get(S.placed[i].text);
+    if (S.foundIdx.has(wordIdx)) continue;
+    const p=S.placed[i].path;
     if (p.length!==sel.length) continue;
-    const fwd=p.every((v,k)=>v===sel[k]), rev=p.every((v,k)=>v===sel[p.length-1-k]);
-    if (fwd||rev) return i;
-  } return -1;
+    const fwd=p.every((v,k)=>v===sel[k]);
+    const rev=p.every((v,k)=>v===sel[p.length-1-k]);
+    if (fwd||rev) return { type:'placed', index:i, drawPath:p.slice() };
+  }
+  return null;
 }
-function claim(i){
-  S.foundIdx.add(i); markWordDone(i);
-  const color=S.bandColors[i%S.bandColors.length]; drawPillForPath(S.placed[i].path,color);
+
+function claim(match){
+  const i = match.index;
+  let wordIdx = i;
+  if (match.type === 'placed'){
+    const word = S.placed[i].text;
+    wordIdx = WORD_INDEX.get(word);
+  }
+  if (wordIdx == null) return;
+
+  S.foundIdx.add(wordIdx);
+  markWordDone(wordIdx);
+  const color = S.bandColors[wordIdx % S.bandColors.length];
+  drawPillForPath(match.drawPath || (S.placed[i] && S.placed[i].path) || [], color);
   praise('Nice!');
   checkWin();
 }
@@ -960,10 +1015,9 @@ function endSelection(){
 
   // normal resolution flow below
   const w = lettersOf(S.selPath);
-  const matchIdx = tryMatchCurrent(S.selPath);
-  if (matchIdx >= 0){
-    claim(matchIdx);
-  } else {
+  const match = tryMatchCurrent(S.selPath);
+    if (match){ claim(match); 
+    } else {
     // optional: only judge “not a word” when len >= 3
     if (S.selPath.length >= 3 && DICT.has(w) &&
         !S.placed.some(p => p.text===w || p.text===w.split('').reverse().join(''))){
@@ -1032,6 +1086,16 @@ $('#optTones').onchange   = e=> S.settings.tones   = e.target.checked;
 $('#optHC').onchange      = e=>{ S.settings.highContrast=e.target.checked; document.body.classList.toggle('hc',e.target.checked); };
 $('#btnHint').onclick = hint;
 
+const badgeMusic = document.getElementById('badgeMusic');
+const badgeFX    = document.getElementById('badgeFX');
+function updateBadges(){
+  badgeMusic.classList.toggle('hide', !!S.settings.music);
+  badgeFX.classList.toggle('hide', !!S.settings.fx);
+}
+$('#optRepeat').onchange  = e => S.settings.allowRepeat = e.target.checked;
+$('#optMusic').onchange   = e => { S.settings.music = e.target.checked; updateBadges(); if(!e.target.checked) Snd.stopLoop(); else Snd.startLoop(); };
+$('#optFX').onchange      = e => { S.settings.fx    = e.target.checked; updateBadges(); };
+
 function startLightningRound(){
   document.body.classList.add('lightning');
   //startGame();             // or your lightning init function
@@ -1086,7 +1150,9 @@ cancelPicker.onclick    = ()=> modePicker.classList.add('hide');
   clearBands(); clearPreview();
   [...gridEl.children].forEach(c=>c.classList.remove('hint'));
 
-  Snd.stopAll(); Snd.startLoop();
+  Snd.stopAll(); 
+  updateBadges();
+  Snd.startLoop(); 
 }
 
 function onStormStrike(){
