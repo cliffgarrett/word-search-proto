@@ -1,0 +1,1459 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<script>
+  (function () {
+    var base = document.createElement('base');
+    base.href = (location.hostname.endsWith('github.io'))
+      ? '/word-search-proto/'   // project site on GitHub Pages
+      : './';                   // local dev server
+    document.head.appendChild(base);
+  })();
+</script>
+<style>
+  /* stop iOS font inflation */
+  html { -webkit-text-size-adjust:100%; text-size-adjust:100%; }
+</style>
+<title>Word-a-Roo</title>
+
+<!-- GitHub Pages: project site base (edit if repo name changes) -->
+<base href="/word-search-proto/">
+
+<style>
+:root{
+  --bg:#0c1015; --fg:#e9eef4;
+  --panelW:clamp(320px,92vw,760px);
+  --panelPad:14px;
+}
+
+/* base */
+html,body{margin:0;height:100%;background:var(--bg);color:var(--fg);
+  font:600 16px/1.25 system-ui,-apple-system,Segoe UI,Inter,Roboto,Helvetica,Arial,sans-serif;}
+button{font:inherit}
+.hide{display:none!important}
+
+/* ---------- header chips ---------- */
+header{position:fixed;left:0;right:0;top:0;display:flex;gap:.6rem;align-items:center;
+  padding:.55rem .7rem;z-index:50;pointer-events:none}
+.chip{pointer-events:auto;background:rgba(20,20,22,.72);border:1px solid rgba(255,255,255,.12);
+  backdrop-filter: blur(8px); border-radius:14px; padding:.38rem .65rem;display:flex;gap:.45rem;
+  align-items:center;font-weight:800}
+.chip.muted{opacity:.65}
+.hide{display:none!important}
+/* ---------- splash ---------- */
+#splash{position:fixed;inset:0;background:#000}
+#splash.hidden{display:none}
+#splash img.bg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:.9}
+#btnStart{
+  position:absolute; left:max(30px, env(safe-area-inset-left));
+  bottom:max(30px, env(safe-area-inset-bottom));
+  appearance:none;border:none;border-radius:999px;padding:14px 22px;
+  background:#0a7bd1;color:#fff;font-weight:900;letter-spacing:.02em;
+  box-shadow:0 10px 30px rgba(0,0,0,.45), inset 0 -3px 0 rgba(0,0,0,.25); cursor:pointer
+}
+#btnStart:active{ transform:translateY(1px) }
+@media (prefers-reduced-motion:no-preference){
+  @keyframes pulse {0%{transform:scale(1);box-shadow:0 0 0 0 rgba(10,123,209,.45)}
+    70%{transform:scale(1.03);box-shadow:0 0 0 14px rgba(10,123,209,0)}100%{transform:scale(1)}}
+  #btnStart{ animation:pulse 1.6s ease-in-out infinite }
+}
+
+/* ===================== game container (NOT full-screen) ===================== */
+/* sits under the header, centered, with bottom breathing room for future UI */
+
+/* centers the whole card under the header and gives it a fixed play area */
+#gameWrap{
+  position:fixed;
+  left:50%;
+  top:56px;                                /* header height */
+  transform:translateX(-50%);
+  width:var(--panelW);                      /* your clamp(320px,92vw,760px) */
+  height:calc(100svh - 56px - 18px);        /* stable viewport height (iOS-safe) */
+  display:flex;
+  justify-content:center;
+  align-items:flex-start;
+  z-index:1;
+}
+  
+/* gradient frame */
+#gameCard{
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+  width:100%;
+  height:auto;
+  opacity: 1;
+  /* same rounded corners for all */
+  border-radius:34px;
+
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.10), rgba(255,255,255,.02)) padding-box,
+    linear-gradient(90deg, #1b2a8f, #a24bff) border-box;
+  border:9px solid transparent;
+
+  box-shadow:0 20px 50px rgba(0,0,0,.35),
+             inset 0 1px 0 rgba(255,255,255,.12);
+
+  /* ✅ clipping fixes */
+  overflow:hidden;                                 /* normal clip */
+  clip-path: inset(0 round 34px);                  /* forces radius on iOS */
+  -webkit-mask-image: -webkit-radial-gradient(white, black);
+}
+
+/* Lightning round visual tweak */
+.lightning #gameCard {
+  opacity: 0.25;
+  animation: flashDim 3s ease-in-out infinite alternate;
+}
+@keyframes flashDim {
+  0%,80% { filter: brightness(1); }
+  85%,100% { filter: brightness(1.25); }  /* lightning flash */
+}
+
+
+/* ---------- word list (top slab) ---------- */
+#wordBar{
+  background:#fff; color:#000;
+  border:1px solid rgba(0,0,0,.10);
+  padding:10px var(--panelPad);
+  border-top-left-radius:24px; border-top-right-radius:24px;
+  border-bottom-left-radius:8px; border-bottom-right-radius:8px;
+  box-shadow:0 1px 0 rgba(0,0,0,.06) inset, 0 6px 16px rgba(0,0,0,.05);
+}
+#wordList{
+  display:grid;
+  grid-template-columns:repeat(3, 1fr);
+  gap:8px;
+  text-align:center;
+  white-space:nowrap;     /* keep each word intact */
+}
+#wordList b{ font-weight:900 } #wordList .done{ opacity:.35 }
+
+/* ---------- messages lane (middle) ---------- */
+#msgArea{
+  min-height:58px; display:grid; place-items:center; gap:6px; text-align:center;
+  background:linear-gradient(180deg, rgba(130,130,160,.45), rgba(130,130,160,.2));
+  border-left:1px solid rgba(0,0,0,.08); border-right:1px solid rgba(0,0,0,.08);
+}
+/* fine-tune vertical alignment of the message zone */
+#msgArea{
+  position:relative;
+  min-height:72px;                     /* stable lane height */
+  display:grid; place-items:center; gap:6px; text-align:center;
+  background:linear-gradient(180deg, rgba(130,130,160,.45), rgba(130,130,160,.2));
+  border-left:1px solid rgba(0,0,0,.08); border-right:1px solid rgba(0,0,0,.08);
+}
+
+#liveWord{
+  display:inline-flex; gap:.05em; letter-spacing:.1em;
+  font-size:clamp(28px,7vw,48px); color:#fff; text-shadow:0 2px 6px rgba(0,0,0,.5)
+}
+#liveWord .ch{ display:inline-block; transform-origin:50% 60%; animation:pop .22s cubic-bezier(.2,.8,.2,1) }
+@keyframes pop{ 0%{transform:scale(.6);opacity:0} 60%{transform:scale(1.12);opacity:1} 100%{transform:scale(1)} }
+#msgStack{ display:grid; gap:6px }
+/* praise overlays the lane — no layout impact */
+#msgStack{
+  position:absolute; inset:0;
+  display:grid; align-content:center; justify-items:center; gap:6px;
+  pointer-events:none;
+}
+.msg{ background:rgba(0,0,0,.78); color:#fff; border-radius:999px; padding:6px 14px; font-weight:900; animation:riseFade .9s ease forwards }
+.msg.good{ background:#0a7bd1 } .msg.bad{ background:#b00020 } .msg.mega{ font-size:clamp(28px,8vw,56px); letter-spacing:.06em; padding:8px 18px }
+@keyframes riseFade{ 0%{opacity:0;transform:translateY(8px)} 60%{opacity:1;transform:translateY(0)} 100%{opacity:0;transform:translateY(-6px)} }
+
+/* ---------- board (bottom slab) ---------- */
+#board{ display:grid; place-items:center; background-color: #ffffff; padding-top: 2px; }
+.cardOriginal{
+  position:relative; width:100%; height:100%;
+  background:#fff; border:1px solid rgba(0,0,0,.12);
+  border-top-left-radius:8px; border-top-right-radius:8px;
+  border-bottom-left-radius:24px; border-bottom-right-radius:24px;
+  padding:18px; 
+  overflow:hidden;                     /* fallback clip */
+  /* enforce clipping of absolutely-positioned children (iOS fix) */
+  clip-path: inset(0 round 8px 8px 24px 24px);
+  -webkit-mask-image: -webkit-radial-gradient(white, black); /* belt & suspenders */
+  display:grid; place-items:center;
+  box-shadow:0 0 0 1px rgba(0,0,0,.02) inset, 0 10px 24px rgba(0,0,0,.08);
+}
+.card{
+  position:relative;
+  width:100%; height:100%;
+  background:#fff;
+  border:1px solid rgba(0,0,0,.12);
+  border-radius:34px;              /* match parent frame */
+  padding:18px;
+  display:grid; place-items:center;
+  overflow:hidden;
+  clip-path: inset(0 round 34px);  /* iOS Safari fix */
+  -webkit-mask-image: -webkit-radial-gradient(white, black);
+  box-shadow:0 0 0 1px rgba(0,0,0,.02) inset,
+             0 10px 24px rgba(0,0,0,.08);
+}
+/* overlays for pills */
+#bands, #bandsPreview{
+  position:absolute; inset:18px; pointer-events:none;
+}
+.band{ position:absolute; border-radius:9999px; opacity:.92 }
+.band.preview{ background:#cdb8ff; opacity:.55; filter:saturate(1.1) }
+.band.pink{background:#F59CB0} .band.purple{background:#C8B6FF} .band.green{background:#A8F5A6}
+.band.gold{background:#FFD166} .band.blue{background:#9ADAFE} .band.orange{background:#FFB07C}
+
+/* grid */
+/* grid */
+#grid{
+  position:relative;
+  display:grid;
+  gap:10px;                      /* keep in sync with JS 'gap' below */
+  user-select:none; touch-action:none;
+  width:100%;
+  max-width:680px;               /* hard cap so it can’t balloon */
+  margin-inline:auto;
+}
+
+/* cells: use --cell from JS, not vw */
+.cell{
+  display:grid; place-items:center; background:transparent; color:#000; font-weight:900;
+  width:var(--cell,56px); height:var(--cell,56px);
+  border-radius:16px;
+
+  /* letters follow the cell size (no vw) */
+  font-size:calc(var(--cell,56px) * 0.36);
+}
+.cell.sel{ outline:3px solid #5fb5ff; outline-offset:2px; background:#f1f6ff }
+
+/* (Optional) keep your pseudo hint; if Safari misbehaves we’ll swap to overlay later */
+.cell.hint{ position:relative }
+.cell.hint::after{ content:""; position:absolute; inset:-4px; border-radius:18px; border:3px dashed #0a7bd1; animation:pulseHint 1s ease-in-out infinite }
+@keyframes pulseHint{ 0%{opacity:.2} 50%{opacity:1} 100%{opacity:.2} }
+/* confetti */
+#confetti{position:fixed;inset:0;pointer-events:none;overflow:hidden;z-index:80}
+#confetti i{position:absolute;width:10px;height:10px;background:#fff;opacity:.9;animation:fall 1200ms linear forwards}
+@keyframes fall{to{transform:translateY(110vh) rotate(720deg);opacity:.2}}
+
+/* high-contrast toggle */
+.hc .cell{color:#000}
+.hc #wordBar{background:#000;color:#fff;border-color:#333}
+
+/* Modal (simple) */
+  #modal{position:fixed;inset:0;background:rgba(0,0,0,.5);display:none;place-items:center;z-index:60}
+  #modal.show{display:grid}
+  .panel{background:#16181d;color:#fff;border:1px solid rgba(255,255,255,.12);border-radius:18px; padding:16px; width:min(92vw,460px)}
+  .row{display:flex;align-items:center;justify-content:space-between;padding:10px 6px}
+  .panel .close{margin-top:10px;width:100%}
+/* game container: keep a little breathing room at the bottom */
+#gameWrap{
+  height:calc(100svh - 56px - max(12px, env(safe-area-inset-bottom)));
+}
+
+/* message lane: smaller default height */
+#msgArea{
+  min-height:clamp(44px, 8vw, 64px);
+}
+
+/* card: slightly tighter vertical padding on phones */
+@media (max-width: 420px){
+  .card{ padding:14px 18px 16px; }
+}
+
+/* grid: tighter gap on small screens */
+@media (max-width: 420px){
+  #grid{ gap:8px; }
+}
+
+/* ===== Lava lamp background ===== */
+:root{
+  /* palette you can tune */
+  --lava-bg:#0b0b1a;
+  --lava-a:#ff3bc0;   /* magenta */
+  --lava-b:#b66bff;   /* purple  */
+  --lava-c:#4ecbff;   /* soft cyan accents */
+}
+
+#lava{
+  position:fixed; inset:0; z-index:0; overflow:hidden;
+  background:
+    radial-gradient(120vmax 120vmax at 10% 10%, #120a2a 0, #0a0e1a 40%, var(--lava-bg) 70%);
+}
+
+/* A single blurred layer, with additive blending for “glow” */
+#lava .blob{
+  position:absolute;
+  width:42vmax; height:42vmax;          /* big, so it feels soft */
+  border-radius:50%;
+  filter:blur(40px);
+  opacity:.70;
+  mix-blend-mode:screen;
+  will-change:transform;
+  animation:drift var(--t,28s) ease-in-out infinite alternate;
+  background:
+    radial-gradient(55% 55% at 35% 35%, var(--c1, var(--lava-a)) 0 55%, transparent 60%),
+    radial-gradient(50% 50% at 70% 65%, var(--c2, var(--lava-b)) 0 55%, transparent 60%);
+}
+
+/* different paths / speeds / colors for variety */
+#lava .b1{ --c1:var(--lava-a); --c2:var(--lava-b); --t:32s; --x1:-10vw; --y1:-15vh; --x2:15vw;  --y2:25vh;  }
+#lava .b2{ --c1:var(--lava-b); --c2:var(--lava-a); --t:26s; --x1:60vw;  --y1:-20vh; --x2:30vw;  --y2:15vh;  }
+#lava .b3{ --c1:var(--lava-a); --c2:var(--lava-c); --t:34s; --x1:10vw;  --y1:70vh;  --x2:-10vw; --y2:35vh;  }
+#lava .b4{ --c1:var(--lava-b); --c2:var(--lava-c); --t:29s; --x1:75vw;  --y1:60vh;  --x2:55vw;  --y2:20vh;  }
+#lava .b5{ --c1:var(--lava-c); --c2:var(--lava-a); --t:38s; --x1:-20vw; --y1:40vh;  --x2:20vw;  --y2:-10vh; }
+
+/* motion that “morphs”: translate + slow scale + slight rotate */
+@keyframes drift{
+  0%   { transform: translate(var(--x1),var(--y1)) scale(0.9) rotate(0deg); }
+  50%  { transform: translate(calc((var(--x1) + var(--x2))/2),
+                               calc((var(--y1) + var(--y2))/2))
+                               scale(1.05) rotate(10deg); }
+  100% { transform: translate(var(--x2),var(--y2)) scale(0.95) rotate(20deg); }
+}
+
+/* accessibility: reduce motion → static, dimmer background */
+@media (prefers-reduced-motion: reduce){
+  #lava .blob{ animation:none; opacity:.45; }
+}
+
+/* ===== StormFX overlay (converted from SCSS) ===== */
+#stormFX.storm{
+  position:fixed; inset:0; z-index:0;
+  background-color:#222;
+  background-image:url('https://drive.google.com/uc?export=view&id=0BzFF7FmbJUo5X0NEUXFVd0NBcWc');
+  background-size:cover; background-position:center; background-repeat:no-repeat;
+  pointer-events:none;
+}
+#stormFX.hide{ display:none; }
+#stormFX.storm::after{
+  content:""; position:absolute; inset:0;
+  background-color:rgba(0,0,0,0.10);
+  animation:thunder-bg 6s infinite;
+}
+#stormFX canvas{ position:absolute; inset:0; width:100%; height:100%; }
+#stormFX #sfx-c3{ z-index:5 } #stormFX #sfx-c2{ z-index:10 } #stormFX #sfx-c1{ z-index:100 }
+@keyframes thunder-bg{
+  0%,9%{background-color:rgba(34,34,34,.90)}
+  10%{background-color:rgba(59,59,59,.30)}
+  10.5%{background-color:rgba(34,34,34,.90)}
+  80%{background-color:rgba(34,34,34,.90)}
+  82%{background-color:rgba(59,59,59,.30)}
+  83%{background-color:rgba(34,34,34,.90)}
+  83.5%{background-color:rgba(59,59,59,.30)}
+  100%{background-color:rgba(34,34,34,.90)}
+}
+@media (prefers-reduced-motion: reduce){
+  #stormFX.storm::after{ animation:none; background-color:rgba(34,34,34,.85) }
+}
+
+/* ===== Mode Picker (simple sheet) ===== */
+.sheet{ position:fixed; inset:0; display:grid; place-items:center; background:rgba(0,0,0,.6); z-index:60 }
+.sheet.hide{ display:none }
+.sheetCard{
+  width:min(92vw,480px); background:#16181d; color:#fff; border-radius:18px;
+  border:1px solid rgba(255,255,255,.12); padding:18px;
+}
+.sheetCard .sub{ opacity:.8; margin:.2rem 0 1rem }
+.btnRow{ display:grid; grid-template-columns:1fr 1fr; gap:12px; margin:10px 0 6px }
+.mBtn{ appearance:none; border:none; border-radius:14px; padding:12px 16px; font-weight:900; cursor:pointer;
+  background:#232633; color:#fff; }
+.mBtn.strong{ background:#0a7bd1 }
+.ghostBtn{ width:100%; appearance:none; border:1px solid #444; background:transparent; color:#ddd;
+  border-radius:10px; padding:10px 12px; margin-top:8px; }
+
+/* ===== Your grid/card spacing tweaks ===== */
+/* 1) remove inner card padding, keep rounded border */
+.card{ padding:0 !important; }
+/* 2) bands overlay now matches edges exactly (no 18px inset anymore) */
+#bands, #bandsPreview{ inset:0 !important; }
+/* 3) tighter grid gap */
+#grid{ gap:4px !important; }
+/* 4) small breathing room above bottom slab */
+#board{ padding-top:4px; }
+
+/* picker */
+.picker{position:fixed; inset:0; display:grid; place-items:center; z-index:70;
+  background:rgba(0,0,0,.6)}
+.picker .pill{appearance:none;border:0;border-radius:999px;padding:14px 22px;
+  background:#0a7bd1;color:#fff;font-weight:900;margin:8px;}
+
+/* storm canvases sit behind the game card */
+#storm{position:fixed; inset:0; z-index:0; pointer-events:none}
+#storm canvas{position:absolute; inset:0}
+
+/* dim the game card only in lightning */
+.mode-lightning #gameCard{opacity:.86}
+
+/* --- Round-A-Roo disk --- */
+#spinBox.round{
+  position:fixed; left:50%; top:56px; transform:translateX(-50%);
+  width:var(--panelW); aspect-ratio:1/1; z-index:2; /* above storm, below header */
+  border-radius:50%; clip-path:circle(49.6% at 50% 50%); overflow:hidden;
+  background:#fff;
+}
+#spinBox .ring{position:absolute; inset:0; border-radius:50%; pointer-events:none;
+  box-shadow:0 0 0 6px #111 inset;}
+#rotor{width:100%; height:100%; display:grid; place-items:center;
+  transform-origin:center; transform:rotate(var(--angle,0deg));
+  transition:transform 800ms ease;}
+/* counter-rotate letters so they stay upright */
+#rotor .cell > span{display:inline-block;
+  transform:rotate(calc(-1 * var(--angle,0deg)));
+  transition:transform 800ms ease;}
+/* iOS clip belt+suspenders */
+@supports (-webkit-touch-callout:none){
+  #spinBox.round{ -webkit-mask-image:-webkit-radial-gradient(white, black);}
+}
+
+</style>
+</head>
+<body>
+<!-- Animated lava-lamp background -->
+<div id="lava" aria-hidden="true">
+  <div class="blob b1"></div>
+  <div class="blob b2"></div>
+  <div class="blob b3"></div>
+  <div class="blob b4"></div>
+  <div class="blob b5"></div>
+</div>
+
+<!-- Splash -->
+<section id="splash" aria-label="Splash">
+  <img class="bg" id="splashImg" alt="Splash" src="assets/img/splash.png">
+  <button id="btnStart">▶ Start</button>
+</section>
+
+<!-- HUD -->
+<header>
+  <div id="btnCfg" class="chip">⚙️ Settings</div>
+  <div id="btnHint" class="chip">💡 Hint</div>
+  <!-- add these two lines -->
+  <div id="badgeMusic" class="chip muted hide">🔇 Music Off</div>
+  <div id="badgeFX" class="chip muted hide">🔕 FX Off</div>
+  <!-- end add -->
+  <div class="chip">Level <span id="lvl">1</span></div>
+  <div class="row"><label>Music</label><input type="checkbox" id="optMusic" checked></div>
+  <div class="row"><label>Sound FX</label><input type="checkbox" id="optSfx" checked></div>
+</header>
+
+<!-- Lightning Round background (off by default) -->
+<div id="stormFX" aria-hidden="true" class="storm hide">
+  <canvas id="sfx-c1"></canvas>
+  <canvas id="sfx-c2"></canvas>
+  <canvas id="sfx-c3"></canvas>
+</div>
+
+<!-- MODE PICKER -->
+<div id="modePicker" class="picker hide">
+  <h2>Choose a mode</h2>
+  <button id="chooseNormal"   class="pill">Classic</button>
+  <button id="chooseLightning" class="pill">Lightning Round</button>
+  <button id="chooseRound"     class="pill">Round-A-Roo</button>
+</div>
+
+<!-- STORM LAYER (Lightning mode) -->
+<div id="storm" class="hide" aria-hidden="true">
+  <canvas id="stormRainBack"></canvas>
+  <canvas id="stormRainFront"></canvas>
+  <canvas id="stormBolts"></canvas>
+</div>
+
+<!-- ROUND-A-ROO circular board wrapper (grid will be moved in/out) -->
+<div id="spinBox" class="round hide">
+  <div id="rotor">
+    <!-- your #grid will be appended here when round mode is active -->
+  </div>
+  <div class="ring"></div>
+</div>
+
+<!-- GAME: container with three lanes -->
+<main id="gameWrap" class="hide">
+  <div id="gameCard">
+    <!-- TOP -->
+    <div id="wordBar"><div id="wordList"></div></div>
+    <!-- MIDDLE -->
+    <section id="msgArea">
+      <div id="liveWord"></div>
+      <div id="msgStack" aria-live="polite"></div>
+    </section>
+    <!-- BOTTOM -->
+    <div id="board">
+      <div class="card">
+        <div id="bandsPreview"></div>
+        <div id="bands"></div>
+        <div id="grid" aria-label="letter grid"></div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<!-- Settings -->
+<div id="modal">
+  <div class="panel">
+    <h3 style="margin:0 0 8px 0">Settings</h3>
+    <div class="row"><label>Snake Charmer (curving paths)</label><input type="checkbox" id="optSnake" checked></div>
+    <div class="row"><label>Haptics</label><input type="checkbox" id="optHaptics" checked></div>
+    <div class="row"><label>Tones on drag</label><input type="checkbox" id="optTones" checked></div>
+    <div class="row"><label>Reduced sensory</label><input type="checkbox" id="optHC"></div>
+    <div class="row"><label>Allow letter reuse (snake)</label><input type="checkbox" id="optRepeat" checked></div>
+    <div class="row"><label>Music</label><input type="checkbox" id="optMusic" checked></div>
+    <div class="row"><label>Audio FX</label><input type="checkbox" id="optFX" checked></div>
+    <button class="close">Close</button>
+  </div>
+</div>
+
+<div id="confetti"></div>
+
+<script>
+/* ===== StormFX: Rain + Lightning (fast) ===== */
+const StormFX = (()=>{
+  let wrap, c1, c2, c3, ctx1, ctx2, ctx3, w, h, rafId=null;
+  const CFG = {
+    rainThroughCount: 400, rainCount: 400, rainThroughSpeed: 25,
+    strikeEveryMs: [500, 1200],      // FAST strikes
+    boltStepPerFrame: 4,             // grow faster each frame
+    boltPathLimit: [22, 34],         // shorter paths
+    boltYRange: [12, 28], boltXRange: [6, 26],
+    flashChanceBack: 0.06, alphaFade: [0.01, 0.30], lineWidthBase: 3
+  };
+  const S = { rainTrough:[], rain:[], lightning:[], nextStrikeAt:0, running:false };
+  const rand=(a,b)=>a+Math.random()*(b-a), pick=(a,b)=>Math.floor(rand(a,b));
+  function mount(){
+    wrap=document.getElementById('stormFX'); if(!wrap) return;
+    c1=document.getElementById('sfx-c1'); c2=document.getElementById('sfx-c2'); c3=document.getElementById('sfx-c3');
+    ctx1=c1.getContext('2d'); ctx2=c2.getContext('2d'); ctx3=c3.getContext('2d');
+    onResize(); buildRain(); scheduleNextStrike(); addEventListener('resize', onResize);
+  }
+  function onResize(){ w=c1.width=c2.width=c3.width=innerWidth; h=c1.height=c2.height=c3.height=innerHeight; }
+  function buildRain(){
+    S.rainTrough.length=0; for(let i=0;i<CFG.rainThroughCount;i++) S.rainTrough.push({x:rand(0,w),y:rand(0,h),length:Math.floor(rand(1,830)),opacity:Math.random()*0.2,xs:rand(-2,2),ys:rand(10,20)});
+    S.rain.length=0; for(let i=0;i<CFG.rainCount;i++) S.rain.push({x:Math.random()*w,y:Math.random()*h,l:Math.random()*1,xs:-4+Math.random()*4+2,ys:Math.random()*10+10});
+  }
+  function scheduleNextStrike(){ const [a,b]=CFG.strikeEveryMs; S.nextStrikeAt=performance.now()+pick(a,b); }
+  function createLightning(){
+    const x=rand(100,w-100), y=rand(0,h/4), n=pick(1,3);
+    for(let i=0;i<n;i++) S.lightning.push({x,y,xRange:rand(CFG.boltXRange[0],CFG.boltXRange[1]),yRange:rand(CFG.boltYRange[0],CFG.boltYRange[1]),path:[{x,y}],pathLimit:pick(CFG.boltPathLimit[0],CFG.boltPathLimit[1])});
+  }
+  const clearRain=()=>{ctx1.clearRect(0,0,w,h); ctx2.clearRect(0,0,w,h);};
+  function fadeLightning(){ ctx3.globalCompositeOperation='destination-out'; ctx3.fillStyle=`rgba(0,0,0,${rand(CFG.alphaFade[0],CFG.alphaFade[1])})`; ctx3.fillRect(0,0,w,h); ctx3.globalCompositeOperation='source-over'; }
+  function drawRainThrough(){
+    const sp=CFG.rainThroughSpeed;
+    for(const r of S.rainTrough){
+      r.y=(r.y>=h)?(h-r.y-r.length*5):(r.y+sp);
+      const g=ctx1.createLinearGradient(0,r.y,0,r.y+r.length); g.addColorStop(0,"rgba(255,255,255,0)"); g.addColorStop(1,`rgba(255,255,255,${r.opacity})`);
+      ctx1.fillStyle=g; ctx1.fillRect(r.x,r.y,1,r.length);
+    }
+  }
+  function drawRain(){
+    ctx2.beginPath(); ctx2.lineWidth=1; ctx2.lineCap='round';
+    for(const r of S.rain){
+      r.x+=r.xs; r.y+=r.ys; if(r.x>w||r.y>h){ r.x=Math.random()*w; r.y=-20; }
+      ctx2.moveTo(r.x,r.y); ctx2.lineTo(r.x+r.l*r.xs, r.y+r.l*r.ys);
+    }
+    ctx2.strokeStyle='rgba(174,194,224,0.5)'; ctx2.stroke();
+  }
+  function drawLightning(){
+    for(let i=S.lightning.length-1;i>=0;i--){
+      const L=S.lightning[i];
+      for(let s=0;s<CFG.boltStepPerFrame;s++){
+        const p=L.path[L.path.length-1];
+        L.path.push({x:p.x+(rand(0,L.xRange)-L.xRange/2), y:p.y+rand(0,L.yRange)});
+        if(L.path.length>L.pathLimit){ S.lightning.splice(i,1); break; }
+      }
+      ctx3.beginPath(); ctx3.moveTo(L.x,L.y); for(let p=0;p<L.path.length;p++) ctx3.lineTo(L.path[p].x,L.path[p].y);
+      let lw=CFG.lineWidthBase; if(pick(0,15)===0) lw=6; if(pick(0,30)===0) lw=8;
+      ctx3.lineWidth=lw; ctx3.lineJoin='miter'; ctx3.strokeStyle='rgba(255,255,255,0.10)'; ctx3.stroke();
+      if(Math.random()<0.06){ ctx3.fillStyle=`rgba(255,255,255,${rand(0.01,0.03)})`; ctx3.fillRect(0,0,w,h); }
+    }
+  }
+  function step(now){
+    clearRain(); drawRainThrough(); drawRain(); fadeLightning();
+    if(now>=S.nextStrikeAt){ createLightning(); scheduleNextStrike(); document.dispatchEvent(new CustomEvent('stormfx:strike')); }
+    drawLightning(); rafId=requestAnimationFrame(step);
+  }
+  function start(){ if(S.running) return; S.running=true; document.getElementById('stormFX')?.classList.remove('hide'); rafId=requestAnimationFrame(step); }
+  function stop(){ S.running=false; cancelAnimationFrame(rafId); ctx1?.clearRect(0,0,w,h); ctx2?.clearRect(0,0,w,h); ctx3?.clearRect(0,0,w,h); document.getElementById('stormFX')?.classList.add('hide'); }
+  return { mount, start, stop, CFG };
+})();
+document.addEventListener('DOMContentLoaded', ()=> StormFX.mount());
+
+/* ---------- Assets (base tag handles the /word-search-proto/ prefix) ---------- */
+const ASSETS = {
+  img:   { splash:'assets/img/splash.png', search:'assets/img/search.png' },
+  audio: {
+    splash:'assets/audio/splash.mp3',
+    search:'assets/audio/search.mp3',
+    victory:'assets/audio/victory.mp3',
+    thunder1:'assets/audio/thunder_crack.mp3',   // NEW
+    thunder2:'assets/audio/thunder_rumble.mp3'    // NEW
+  }
+};
+
+/* ---------- Tiny audio helper (unlocked once) ---------- */
+/* ---------- Tiny audio helper (unlocked once) ---------- */
+/*
+const Snd = (() => {
+  const aSplash = new Audio(ASSETS.audio.splash);
+  const aLoop   = new Audio(ASSETS.audio.search);
+  const aWin    = new Audio(ASSETS.audio.victory);
+  const aTh1    = new Audio(ASSETS.audio.thunder1);
+  const aTh2    = new Audio(ASSETS.audio.thunder2);
+
+  aLoop.loop = true; aLoop.volume = .55;
+  [aSplash,aLoop,aWin,aTh1,aTh2].forEach(a => { try{ a.preload='auto'; a.crossOrigin='anonymous'; }catch{} });
+
+  let unlocked=false, ctx=null, duckTimer=null, lastThunder=0;
+
+  async function userInit(){
+    if (unlocked) return;
+    try{
+      ctx = new (window.AudioContext||window.webkitAudioContext)();
+      await ctx.resume();               // iOS unlock (silent)
+      // Just load — avoid play() during unlock to keep Safari happy
+      [aSplash,aLoop,aWin,aTh1,aTh2].forEach(a=>a.load());
+    }catch{}
+    unlocked = true;
+  }
+
+async function startLoop(){
+  if (!S.settings.music) return;
+  try{ aLoop.currentTime=0; await aLoop.play(); }catch{}
+}
+function stopLoop(){ try{ aLoop.pause(); }catch{} }
+function stopAll(){ [aSplash,aLoop,aWin].forEach(a=>{ try{a.pause()}catch{} }); }
+async function playSplash(){
+  // play only if FX are enabled (so “music off” doesn’t block one-shot SFX)
+  if (!S.settings.fx) return;
+  try { aSplash.currentTime = 0; await aSplash.play(); } catch {}
+}
+
+async function victory(){
+  if (!S.settings.fx) return;
+  try{ aWin.currentTime=0; await aWin.play(); }catch{}
+}
+
+function tone(freq=440, dur=0.06){
+  if (!S.settings.fx || !S.settings.tones || !ctx) return;
+  const o=ctx.createOscillator(), g=ctx.createGain();
+  o.connect(g).connect(ctx.destination); o.type='sine'; o.frequency.value=freq;
+  const t=ctx.currentTime; g.gain.setValueAtTime(0.0001,t);
+  g.gain.exponentialRampToValueAtTime(0.2,t+0.01);
+  g.gain.exponentialRampToValueAtTime(0.0001,t+dur);
+  o.start(t); o.stop(t+dur+0.02);
+}
+
+function haptic(ms=8){
+  if (!S.settings.fx || !S.settings.haptics) return;
+  if (navigator.vibrate) navigator.vibrate(ms);
+}
+  // --- loop ducking (fade down/up) ---
+  function duck(to=0.25, ms=260){
+    clearTimeout(duckTimer);
+    const from = aLoop.volume;
+    const steps = 13, dt = ms/steps;
+    let i=0;
+    const tick = ()=>{
+      i++; aLoop.volume = from + (to-from)*(i/steps);
+      if (i<steps) duckTimer=setTimeout(tick, dt);
+    };
+    tick();
+  }
+  function unduck(ms=380){
+    clearTimeout(duckTimer);
+    const from = aLoop.volume, to = .55; // your normal loop volume
+    const steps = 16, dt = ms/steps;
+    let i=0;
+    const tick = ()=>{
+      i++; aLoop.volume = from + (to-from)*(i/steps);
+      if (i<steps) duckTimer=setTimeout(tick, dt);
+    };
+    tick();
+  }
+
+  // --- thunder (rate-limited, random clip) ---
+  async function thunder(prob=0.8, minGapMs=900){
+    const now = performance.now();
+    if (Math.random() > prob) return;           // not every strike
+    if (now - lastThunder < minGapMs) return;   // rate limit
+    lastThunder = now;
+
+    // pick a clip
+    const a = (Math.random()<0.5 ? aTh1 : aTh2);
+    try{
+      duck();
+      a.currentTime = 0;
+      // Don’t overlap if same clip mid-play (optional)
+      try{ a.pause(); }catch{}
+      await a.play();
+      // restore loop volume after clip ends (or max 2s safety)
+      const safetime = 2000;
+      let cleared=false;
+      const done=()=>{ if (!cleared){ cleared=true; unduck(); } };
+      a.onended = done;
+      setTimeout(done, safetime);
+    }catch{
+      unduck();
+    }
+  }
+
+  // tiny tone + haptic (unchanged)
+  function tone(freq=440, dur=0.06){
+    if (!S.settings.tones || !ctx) return;
+    const o=ctx.createOscillator(), g=ctx.createGain();
+    o.connect(g).connect(ctx.destination); o.type='sine'; o.frequency.value=freq;
+    const t=ctx.currentTime; g.gain.setValueAtTime(0.0001,t);
+    g.gain.exponentialRampToValueAtTime(0.2,t+0.01);
+    g.gain.exponentialRampToValueAtTime(0.0001,t+dur);
+    o.start(t); o.stop(t+dur+0.02);
+  }
+  function haptic(ms=8){ if (S.settings.haptics && navigator.vibrate) navigator.vibrate(ms); }
+
+  return { userInit, playSplash, startLoop, stopLoop, stopAll, victory, tone, haptic };
+})();
+*/
+const Snd = (() => {
+  const aSplash = new Audio(ASSETS.audio.splash);
+  const aLoop   = new Audio(ASSETS.audio.search); aLoop.loop=true; aLoop.volume=.55;
+  const aWin    = new Audio(ASSETS.audio.victory);
+
+  // thunder clips (short crack + longer rumble)
+  const aCrack  = new Audio(ASSETS.audio.thunder_crack || 'assets/audio/thunder_crack.mp3');
+  const aRumble = new Audio(ASSETS.audio.thunder_rumble|| 'assets/audio/thunder_rumble.mp3');
+
+  let unlocked=false, ctx=null;
+
+  async function unlockOne(src){ try{ const a=new Audio(src); await a.play(); a.pause(); }catch{} }
+  async function userInit(){
+    if (unlocked) return;
+    try{
+      ctx = new (window.AudioContext||window.webkitAudioContext)();
+      await ctx.resume();
+    }catch{}
+    // just load so iOS allows later play()
+    [aSplash,aLoop,aWin,aCrack,aRumble].forEach(a=>a.load());
+    unlocked=true;
+  }
+
+  async function playSplash(){ if(!S.settings.sfx) return; try{ aSplash.currentTime=0; await aSplash.play(); }catch{} }
+  async function startLoop(){ if(!S.settings.music) return; try{ aLoop.currentTime=0; await aLoop.play(); }catch{} }
+  function stopAll(){ [aSplash,aLoop,aWin,aCrack,aRumble].forEach(a=>{ try{a.pause()}catch{} }); }
+
+  async function victory(){ if(!S.settings.sfx) return; try{ aWin.currentTime=0; await aWin.play(); }catch{} }
+
+  async function thunder(kind='crack'){                   // <— NEW
+    if(!S.settings.sfx) return;
+    const a = (kind==='rumble') ? aRumble : aCrack;
+    try{ a.currentTime=0; await a.play(); }catch{}
+  }
+
+  function tone(freq=440, dur=0.06){
+    if (!S.settings.sfx || !ctx) return;
+    const o=ctx.createOscillator(), g=ctx.createGain();
+    o.connect(g).connect(ctx.destination); o.type='sine'; o.frequency.value=freq;
+    const t=ctx.currentTime; g.gain.setValueAtTime(0.0001,t);
+    g.gain.exponentialRampToValueAtTime(0.2,t+0.01);
+    g.gain.exponentialRampToValueAtTime(0.0001,t+dur);
+    o.start(t); o.stop(t+dur+0.02);
+  }
+  function haptic(ms=8){ if (S.settings.haptics && navigator.vibrate) navigator.vibrate(ms); }
+
+  return { userInit, playSplash, startLoop, stopAll, victory, thunder, tone, haptic };
+})();
+
+/* ---------- Data ---------- */
+const WORDS = ['BIRD','BUG','CLOUD','DRAGON','KITE','EMIT'];
+const WORD_INDEX = new Map(WORDS.map((w,i)=>[w,i]));
+const DICT = new Set(['BIRD','BUG','CLOUD','DRAGON','KITE','EMIT','TIME','TIDE','TREE','STONE','RING','ROAD','RAIN','WIND','FIRE','WATER','EARTH','AIR','SUN','STAR','MOON']);
+
+const modePicker = document.getElementById('modePicker');
+const chooseStandard  = document.getElementById('chooseStandard');
+const chooseLightning = document.getElementById('chooseLightning');
+const cancelPicker    = document.getElementById('cancelPicker');
+
+/* ---------- State ---------- */
+const S = {
+  level:1, rows:7, cols:6, grid:[], placed:[], foundIdx:new Set(), bonusWords:new Set(),
+  dragging:false, selPath:[], 
+//   settings:{ snake:true, haptics:true, tones:true, highContrast:false, allowRepeat:true, music:true, fx:true },
+  settings:{ snake:true, haptics:true, tones:true, highContrast:false, music:true, sfx:true },
+  bandColors:['pink','purple','green','gold','blue','orange']
+};
+S.curDir = [0,0];        // current snapped direction (dr,dc)
+S.segLen = 0;            // cells traveled in current segment
+S.minTurnLen = 1;        // require 2 cells straight before turning
+S.roundMode = 'standard'; // or 'lightning'
+/* ---------- DOM ---------- */
+const $ = s => document.querySelector(s);
+const splash = $('#splash'), gridEl = $('#grid'), bandsEl = $('#bands'), previewEl = $('#bandsPreview');
+const wordList = $('#wordList'), lvlEl = $('#lvl'), gameWrap = $('#gameWrap');
+
+/* ---------- Helpers ---------- */
+const R = n => Math.floor(Math.random()*n);
+const idx=(r,c)=> r*S.cols+c, inb=(r,c)=> r>=0&&c>=0&&r<S.rows&&c<S.cols;
+const rcOf=id=> [(id/S.cols)|0, id%S.cols];
+function lettersOf(path){ return path.map(id=>S.grid[id]).join(''); }
+// screen-space center for a grid cell
+// center point of a cell in client coords
+function cellCenterClient(id){
+  const r = gridEl.children[id].getBoundingClientRect();
+  return { x: r.left + r.width/2, y: r.top + r.height/2 };
+}
+// snap any angle to one of 8 unit directions
+function snapDir(dx, dy){
+  if (dx===0 && dy===0) return [0,0];
+  const a = Math.atan2(dy, dx);              // -PI..PI
+  // 8-way bins every 45° centered on axes (±22.5° tolerance)
+  const step = Math.PI / 4;                  // 45°
+  const bin  = Math.round(a / step);
+  const dir  = bin % 8;
+  // map bin → (dr,dc)
+  const map = [
+    [ 0, 1],  // 0: →
+    [-1, 1],  // 1: ↗
+    [-1, 0],  // 2: ↑
+    [-1,-1],  // 3: ↖
+    [ 0,-1],  // 4: ←
+    [ 1,-1],  // 5: ↙
+    [ 1, 0],  // 6: ↓
+    [ 1, 1],  // 7: ↘
+  ];
+  return map[(dir+8)%8];
+}
+
+// get neighbor id in given (dr,dc), or -1 if OOB
+function neighborInDir(id, dr, dc){
+  const [r,c] = rcOf(id);
+  const rr = r + dr, cc = c + dc;
+  return inb(rr,cc) ? idx(rr,cc) : -1;
+}
+  
+/* grid size to fit card width (no extra white) */
+function setupGridSize(){
+  const cols = S.cols, rows = S.rows;
+  const gap  = 10;   // must match #grid { gap }
+  const pad  = 18;   // must match .card { padding }
+
+  const card = document.querySelector('.card');
+
+  // Inner content box of the card
+  const innerW = card.clientWidth  - pad*2;
+  const innerH = card.clientHeight - pad*2;
+
+  // Max cell size that fits width and height
+  const cellW = Math.floor((innerW - gap*(cols-1)) / cols);
+  const cellH = Math.floor((innerH - gap*(rows-1)) / rows);
+  const cell  = Math.min(68, cellW, cellH);   // honor your 68px cap
+
+  // Apply
+  gridEl.style.gridTemplateColumns = `repeat(${cols}, ${cell}px)`;
+  gridEl.style.setProperty('--cell', `${cell}px`);
+
+  // Optional: make the card hug the grid (no extra white)
+  const fit = getComputedStyle(card).getPropertyValue('--board-fit').trim();
+  if (fit === 'tight'){
+    const exactH = rows*cell + gap*(rows-1) + pad*2;
+    card.style.height = exactH + 'px';
+  } else {
+    card.style.height = '100%';   // fill lane; grid will be centered
+  }
+}
+
+// function sizeCells(){
+//   const isNarrow = gridEl.clientWidth <= 420;
+//   const gap = isNarrow ? 8 : 10;     // MUST match CSS media queries
+//   const cols = S.cols;
+//   const w = gridEl.clientWidth;
+//   const cell = Math.min(68, Math.floor((w - gap*(cols-1)) / cols));
+//   gridEl.style.setProperty('--cell', cell + 'px');
+//   // also keep the grid-template-columns in sync if you prefer fixed pixels:
+//   gridEl.style.gridTemplateColumns = `repeat(${cols}, ${cell}px)`;
+// }
+function sizeCells(){
+  const gap = 4;                       // 👈 sync with CSS
+  const cols = S.cols;
+  const w = gridEl.clientWidth;
+  const cell = Math.min(68, Math.floor((w - gap*(cols-1)) / cols));
+  gridEl.style.setProperty('--cell', cell + 'px');
+  gridEl.style.gridTemplateColumns = `repeat(${cols}, ${cell}px)`;
+}
+
+function cellPx(){
+  const v = getComputedStyle(gridEl).getPropertyValue('--cell');
+  return Math.max(20, parseFloat(v)||56);
+}  
+
+/* ---------------- LIGHTNING STORM ---------------- */
+const Storm = (() => {
+  const C = {
+    rainBack: 400, rainFront: 450,
+    rainSpeedBack: 22, rainSpeedFront: 28,
+    boltXRange:[6,24], boltYRange:[12,26], boltPathLimit:[38,60],
+    fadeAlpha:[0.02,0.06],
+    // frequency control (avg seconds between strikes):
+    meanSeconds: 3.2,                             // tweak here
+    crackVsRumble: 0.65                           // 65% crack, else rumble
+  };
+
+  // canvases
+  const cvB = document.getElementById('stormRainBack');
+  const cvF = document.getElementById('stormRainFront');
+  const cvL = document.getElementById('stormBolts');
+  const b = cvB.getContext('2d'), f = cvF.getContext('2d'), l = cvL.getContext('2d');
+
+  let W=0,H=0, loopId=null, tNext=0;
+  let behind=[], front=[], bolts=[];
+
+  const rand=(a,b)=> a + Math.random()*(b-a);
+  const pick=(a,b)=> Math.floor(rand(a,b+1));
+
+  function resize(){
+    [cvB,cvF,cvL].forEach(cv=>{ cv.width=innerWidth; cv.height=innerHeight; });
+    W=innerWidth; H=innerHeight;
+  }
+  addEventListener('resize', resize);
+
+  function seedRain(){
+    behind = Array.from({length:C.rainBack}, ()=>({x:rand(0,W), y:rand(0,H), l:rand(10,30)}));
+    front  = Array.from({length:C.rainFront},()=>({x:rand(0,W), y:rand(0,H), l:rand(10,30)}));
+  }
+
+  function drawRain(arr, ctx, speed){
+    ctx.clearRect(0,0,W,H);
+    ctx.strokeStyle='rgba(174,194,224,.5)';
+    ctx.lineWidth=1; ctx.lineCap='round';
+    for (const r of arr){
+      ctx.beginPath();
+      ctx.moveTo(r.x, r.y);
+      ctx.lineTo(r.x+ r.l*0.2, r.y + r.l);
+      ctx.stroke();
+      r.x += 0.8; r.y += speed;
+      if (r.x>W || r.y>H){ r.x = rand(0,W); r.y = -20; }
+    }
+  }
+
+  function makeBolt(){
+    const x = rand(80, W-80), y = rand(0, H/4);
+    const n = pick(1,3);
+    for (let i=0;i<n;i++){
+      bolts.push({
+        x,y, xRange:rand(...C.boltXRange), yRange:rand(...C.boltYRange),
+        path:[{x,y}], pathLimit:pick(...C.boltPathLimit)
+      });
+    }
+    // audio cue
+    Snd.thunder(Math.random()<C.crackVsRumble?'crack':'rumble');
+    if (S.settings.haptics) navigator.vibrate?.(10);
+  }
+
+  function fadeBolts(){
+    l.globalCompositeOperation='destination-out';
+    l.fillStyle=`rgba(0,0,0,${rand(...C.fadeAlpha)})`;
+    l.fillRect(0,0,W,H);
+    l.globalCompositeOperation='source-over';
+  }
+
+  function drawBolts(){
+    fadeBolts();
+    for (let i=0;i<bolts.length;i++){
+      const bt = bolts[i];
+      const last = bt.path[bt.path.length-1];
+      bt.path.push({ x:last.x + (rand(-bt.xRange, bt.xRange)),
+                     y:last.y + (rand( 0, bt.yRange)) });
+      if (bt.path.length>bt.pathLimit) { bolts.splice(i--,1); continue; }
+
+      l.strokeStyle='rgba(255,255,255,.12)';
+      l.lineWidth = (Math.random()<.05)? 7 : (Math.random()<.2? 5 : 3);
+      l.beginPath(); l.moveTo(bt.x,bt.y);
+      for (const p of bt.path) l.lineTo(p.x,p.y);
+      if (Math.random()<0.05){  // brief screen wash
+        l.fillStyle='rgba(255,255,255,0.02)';
+        l.fillRect(0,0,W,H);
+      }
+      l.stroke();
+    }
+  }
+
+  function scheduleNext(now){
+    // exponential distribution: random delay around meanSeconds
+    const mean = C.meanSeconds * 1000;
+    const delay = -Math.log(1-Math.random()) * mean;
+    tNext = now + delay;
+  }
+
+  function step(now){
+    drawRain(behind,b,C.rainSpeedBack);
+    drawRain(front,f,C.rainSpeedFront);
+    drawBolts();
+
+    if (now >= tNext){ makeBolt(); scheduleNext(now); }
+    loopId = requestAnimationFrame(step);
+  }
+
+  function start(){
+    resize(); seedRain(); l.clearRect(0,0,W,H); scheduleNext(performance.now());
+    cancelAnimationFrame(loopId); loopId = requestAnimationFrame(step);
+    document.getElementById('storm').classList.remove('hide');
+    document.body.classList.add('mode-lightning');
+  }
+  function stop(){
+    cancelAnimationFrame(loopId); loopId=null;
+    [b,f,l].forEach(ctx=>ctx.clearRect(0,0,W,H));
+    document.getElementById('storm').classList.add('hide');
+    document.body.classList.remove('mode-lightning');
+  }
+  function setFrequency(avgSeconds){ C.meanSeconds = Math.max(.6, +avgSeconds||3.2); }
+
+  return { start, stop, setFrequency };
+})();
+
+let twisterTimer=null, twisterAngle=0;
+function mountRound(){
+  const rotor = document.querySelector('#rotor');
+  const grid  = document.querySelector('#grid');
+  rotor.appendChild(grid);
+  document.getElementById('spinBox').classList.remove('hide');
+}
+function unmountRound(){
+  const card = document.querySelector('.card');
+  const grid = document.querySelector('#grid');
+  card.appendChild(grid);
+  document.getElementById('spinBox').classList.add('hide');
+  document.documentElement.style.setProperty('--angle','0deg');
+}
+function startTwister(stepDeg=15, everyMs=1500){
+  stopTwister(); twisterAngle=0;
+  twisterTimer=setInterval(()=>{
+    twisterAngle = (twisterAngle + stepDeg) % 360;
+    document.documentElement.style.setProperty('--angle', twisterAngle+'deg');
+  }, everyMs);
+}
+function stopTwister(){ if (twisterTimer){ clearInterval(twisterTimer); twisterTimer=null; } }
+
+/* ---------- Build / place ---------- */
+function buildEmpty(){ S.grid = Array(S.rows*S.cols).fill(''); }
+function allowedDirs(){ return [[0,1],[1,0],[1,1],[1,-1],[-1,1],[-1,-1],[0,-1],[-1,0]]; }
+function tryPlaceStraight(w){
+  const W=w.split('');
+  for(let t=0;t<420;t++){
+    const dir = allowedDirs()[R(8)];
+    const r0=R(S.rows), c0=R(S.cols);
+    const r1=r0+dir[0]*(W.length-1), c1=c0+dir[1]*(W.length-1);
+    if (!inb(r1,c1)) continue;
+    let ok=true, path=[];
+    for(let k=0;k<W.length;k++){
+      const r=r0+dir[0]*k, c=c0+dir[1]*k, id=idx(r,c);
+      const ch=S.grid[id]; if (ch && ch!==W[k]){ ok=false; break; }
+      path.push(id);
+    }
+    if(!ok) continue;
+    for(let k=0;k<W.length;k++) S.grid[path[k]]=W[k];
+    S.placed.push({text:w, path});
+    return true;
+  }
+  return false;
+}
+function fillRandom(){
+  const BAG="EEEEEEEEEEEEEEEAAAAAAAIIIIIIIOOOOOONNNNRRRRRSSSSTTTTTDLLLLUGGBBCCMMPPFFHHVVWWYKJXQZ";
+  for(let i=0;i<S.grid.length;i++) if(!S.grid[i]) S.grid[i]=BAG[R(BAG.length)];
+}
+
+/* ---------- Render ---------- */
+function renderGrid(){
+  gridEl.innerHTML='';
+  for(let i=0;i<S.grid.length;i++){
+    const d=document.createElement('div'); d.className='cell'; d.textContent=S.grid[i]; d.dataset.idx=i;
+    gridEl.appendChild(d);
+  }
+  //setupGridSize();
+}
+function renderWords(){
+  wordList.innerHTML='';
+  WORDS.forEach((w,i)=>{
+    const el=document.createElement('span'); el.innerHTML=`<b>${w}</b>`; el.id='word_'+i;
+    wordList.appendChild(el);
+  });
+}
+function markWordDone(i){ $('#word_'+i)?.classList.add('done'); }
+
+/* ---------- Bands ---------- */
+function segmentStraight(path){
+  if (path.length<2) return [];
+  const segs=[]; let a=path[0], b=path[1];
+  let dr=Math.sign(rcOf(b)[0]-rcOf(a)[0]), dc=Math.sign(rcOf(b)[1]-rcOf(a)[1]);
+  let cur=[a,b];
+  for(let i=2;i<path.length;i++){
+    const p=path[i], [rPrev,cPrev]=rcOf(path[i-1]), [r,c]=rcOf(p);
+    const dr2=Math.sign(r-rPrev), dc2=Math.sign(c-cPrev);
+    if (dr2===dr&&dc2===dc) cur.push(p); else{ segs.push(cur.slice()); cur=[path[i-1],p]; dr=dr2; dc=dc2; }
+  }
+  segs.push(cur.slice()); return segs;
+}
+function cellRect(id){
+  const cell = gridEl.children[id], hostRect = previewEl.getBoundingClientRect(), r = cell.getBoundingClientRect();
+  return { cx:r.left-hostRect.left+r.width/2, cy:r.top-hostRect.top+r.height/2, w:r.width, h:r.height };
+}
+function clearBands(){ bandsEl.innerHTML=''; } function clearPreview(){ previewEl.innerHTML=''; }
+function drawBandSegment(container,aId,bId,color,preview=false){
+  const A=cellRect(aId), B=cellRect(bId), dx=B.cx-A.cx, dy=B.cy-A.cy;
+  const len=Math.hypot(dx,dy)+Math.min(A.w,A.h)*0.68, angle=Math.atan2(dy,dx)*180/Math.PI;
+  const th = Math.min(A.h, A.w)*0.72;
+  const d=document.createElement('div'); d.className='band '+color+(preview?' preview':'');
+  d.style.width=`${len}px`; d.style.height=`${th}px`;
+  d.style.left=`${(A.cx+B.cx)/2-len/2}px`; d.style.top=`${(A.cy+B.cy)/2-th/2}px`;
+  d.style.transform=`rotate(${angle}deg)`; container.appendChild(d);
+}
+function drawPillForPath(path,color,preview=false){
+  for(const seg of segmentStraight(path)) drawBandSegment(preview?previewEl:bandsEl, seg[0], seg[seg.length-1], color, preview);
+}
+
+/* ---------- Selection / input ---------- */
+function neighbors(id){
+  const [r,c]=rcOf(id); const out=[];
+  for(const [dr,dc] of [[1,0],[-1,0],[0,1],[0,-1],[1,1],[-1,-1],[1,-1],[-1,1]]){
+    const rr=r+dr, cc=c+dc; if(inb(rr,cc)) out.push(idx(rr,cc));
+  } return out;
+}
+function updateCellSelection(){ [...gridEl.children].forEach(c=>c.classList.remove('sel')); for(const id of S.selPath) gridEl.children[id].classList.add('sel'); }
+function redrawPreview(){ clearPreview(); if (S.selPath.length>1) drawPillForPath(S.selPath,'blue',true); }
+
+function setLiveWord(str){
+  const box = document.getElementById('liveWord');
+  if (!str){ box.innerHTML=''; return; }
+  const old = box.textContent || '';
+  if (str.startsWith(old) && str.length===old.length+1){
+    const s=document.createElement('span'); s.className='ch'; s.textContent=str.at(-1); box.appendChild(s); return;
+  }
+  box.innerHTML=''; [...str].forEach((ch,i)=>{ const s=document.createElement('span'); s.className='ch'; s.textContent=ch; s.style.animationDelay=(i*12)+'ms'; box.appendChild(s); });
+}
+function updateLiveWord(){ setLiveWord(S.selPath.length?lettersOf(S.selPath):''); }
+
+function tryMatchCurrent(sel){
+  if (S.settings.snake){
+    const w  = lettersOf(sel);
+    const wr = w.split('').reverse().join('');
+    let i = WORD_INDEX.get(w);
+    if (i != null && !S.foundIdx.has(i)) return { type:'word', index:i, drawPath: sel.slice() };
+    i = WORD_INDEX.get(wr);
+    if (i != null && !S.foundIdx.has(i)) return { type:'word', index:i, drawPath: sel.slice().reverse() };
+    return null;
+  }
+  // straight mode (your old behavior)
+  for (let i=0;i<S.placed.length;i++){
+    const wordIdx = WORD_INDEX.get(S.placed[i].text);
+    if (S.foundIdx.has(wordIdx)) continue;
+    const p=S.placed[i].path;
+    if (p.length!==sel.length) continue;
+    const fwd=p.every((v,k)=>v===sel[k]);
+    const rev=p.every((v,k)=>v===sel[p.length-1-k]);
+    if (fwd||rev) return { type:'placed', index:i, drawPath:p.slice() };
+  }
+  return null;
+}
+
+function claim(match){
+  const i = match.index;
+  let wordIdx = i;
+  if (match.type === 'placed'){
+    const word = S.placed[i].text;
+    wordIdx = WORD_INDEX.get(word);
+  }
+  if (wordIdx == null) return;
+
+  S.foundIdx.add(wordIdx);
+  markWordDone(wordIdx);
+  const color = S.bandColors[wordIdx % S.bandColors.length];
+  drawPillForPath(match.drawPath || (S.placed[i] && S.placed[i].path) || [], color);
+  praise('Nice!');
+  checkWin();
+}
+function praise(msg,type='good'){ const n=document.createElement('div'); n.className='msg '+type; n.textContent=msg; document.getElementById('msgStack').appendChild(n); setTimeout(()=>n.remove(),1100); }
+
+let activePointer = null;
+
+gridEl.addEventListener('pointerdown', e=>{
+  const el = e.target.closest('.cell'); if(!el) return;
+  gridEl.setPointerCapture(e.pointerId); activePointer = e.pointerId;
+
+  S.dragging = true;
+  S.selPath  = [+el.dataset.idx];
+  S.curDir   = [0,0];
+  S.segLen   = 0;
+
+  updateCellSelection(); redrawPreview(); updateLiveWord();
+  e.preventDefault();
+},{passive:false});
+
+gridEl.addEventListener('pointermove', e=>{
+  if (!S.dragging || e.pointerId !== activePointer) return;
+
+  const lastId = S.selPath[S.selPath.length-1];
+  const lastR  = gridEl.children[lastId].getBoundingClientRect();
+  const lastCx = lastR.left + lastR.width/2;
+  const lastCy = lastR.top  + lastR.height/2;
+
+  // Build neighbor candidates (8-way)
+  const dirs = [[1,0],[-1,0],[0,1],[0,-1],[1,1],[-1,-1],[1,-1],[-1,1]];
+  const candidates = [];
+  for (const [dr,dc] of dirs){
+    const [r,c] = rcOf(lastId);
+    const rr=r+dr, cc=c+dc;
+    if (!inb(rr,cc)) continue;
+    const nid = idx(rr,cc);
+    // allow backtrack one step but not revisiting old cells
+    const prev = S.selPath[S.selPath.length-2];
+    if (nid !== prev && S.selPath.includes(nid)) continue;
+
+    const nb = gridEl.children[nid].getBoundingClientRect();
+    const nCx = nb.left + nb.width/2;
+    const nCy = nb.top  + nb.height/2;
+    const dx = e.clientX - nCx;
+    const dy = e.clientY - nCy;
+    const dist2 = dx*dx + dy*dy;
+    candidates.push({ nid, dr, dc, dist2 });
+  }
+  if (!candidates.length) return;
+
+  // Choose the neighbor whose center is closest to the finger
+  candidates.sort((a,b)=> a.dist2 - b.dist2);
+  const best = candidates[0];
+
+  // Gate: only advance if you're reasonably close to that neighbor
+  const d = Math.sqrt(best.dist2);
+  const threshold = cellPx()*0.55; // tweak 0.5–0.65 to taste
+  if (d > threshold) return;
+
+  // Hysteresis: require some straight cells before allowing a turn
+  const turning = (S.curDir[0] || S.curDir[1]) && (best.dr!==S.curDir[0] || best.dc!==S.curDir[1]);
+  if (turning && S.segLen < S.minTurnLen) return;
+
+  // Handle backtrack
+  const prev = S.selPath[S.selPath.length-2];
+  if (prev!=null && best.nid===prev){
+    S.selPath.pop();
+    if (S.segLen>0) S.segLen--;
+    if (S.segLen===0) S.curDir=[0,0];
+    updateCellSelection(); redrawPreview(); updateLiveWord();
+    return;
+  }
+
+  // Straight-only mode when snake is off
+  if (!S.settings.snake && S.selPath.length>=1){
+    if (S.curDir[0]===0 && S.curDir[1]===0){ S.curDir=[best.dr,best.dc]; }
+    else if (best.dr!==S.curDir[0] || best.dc!==S.curDir[1]) return;
+  }
+
+  // Accept step
+  S.selPath.push(best.nid);
+  if (S.curDir[0]===best.dr && S.curDir[1]===best.dc) S.segLen++;
+  else { S.curDir=[best.dr,best.dc]; S.segLen=1; }
+
+  updateCellSelection(); redrawPreview(); updateLiveWord();
+  Snd.haptic(6); Snd.tone(300 + S.selPath.length*60, 0.05);
+},{passive:false});
+  
+function endSelection(){
+  if (!S.dragging) return;
+  S.dragging = false; activePointer = null;
+
+  // --- FULL UNDO: cancel if only 0–1 cells selected ---
+  if (S.selPath.length <= 1){
+    S.selPath.length = 0;
+    S.curDir = [0,0];
+    S.segLen = 0;
+    updateCellSelection();
+    clearPreview();
+    updateLiveWord();
+    return;       // <- nothing happens
+  }
+
+  // normal resolution flow below
+  const w = lettersOf(S.selPath);
+  const match = tryMatchCurrent(S.selPath);
+    if (match){ claim(match); 
+    } else {
+    // optional: only judge “not a word” when len >= 3
+    if (S.selPath.length >= 3 && DICT.has(w) &&
+        !S.placed.some(p => p.text===w || p.text===w.split('').reverse().join(''))){
+      S.bonusWords.add(w);
+      drawPillForPath(S.selPath,'gold');
+      praise('Great find! '+w);
+    } else {
+      // comment this out if you want silence for any miss
+      praise('Not a word','bad');
+    }
+  }
+
+  S.selPath.length = 0;
+  S.curDir = [0,0];
+  S.segLen = 0;
+  updateCellSelection();
+  clearPreview();
+  updateLiveWord();
+}
+  addEventListener('pointerup', endSelection, {passive:true});
+addEventListener('pointercancel', ()=>{ S.dragging=false; activePointer=null; S.selPath.length=0; updateCellSelection(); clearPreview(); updateLiveWord(); }, {passive:true});
+
+/* ---------- Hint ---------- */
+function hint(){
+  const i = S.placed.findIndex((p,ix)=>!S.foundIdx.has(ix));
+  if (i<0) return;
+  const firstId = S.placed[i].path[0];
+
+  [...gridEl.children].forEach(c=>c.classList.remove('hint'));
+  const cell = gridEl.children[firstId];
+  cell.classList.add('hint');
+
+  // Auto-remove hint after 1 second
+  setTimeout(()=> cell.classList.remove('hint'), 1000);
+}
+
+/* ---------- Win ---------- */
+function confetti(){
+  const host=$('#confetti'); host.innerHTML='';
+  const colors=['#FF6B6B','#FFD166','#4ECDC4','#C7F464','#C8B6FF','#9ADAFE','#FFB07C'];
+  for(let i=0;i<90;i++){ const d=document.createElement('i');
+    d.style.left=(Math.random()*100)+'vw'; d.style.top=(-10-Math.random()*30)+'vh';
+    d.style.background=colors[R(colors.length)]; d.style.width=d.style.height=(6+Math.random()*8)+'px';
+    d.style.animationDuration=(800+Math.random()*700)+'ms'; host.appendChild(d);
+  } setTimeout(()=>host.innerHTML='',1600);
+}
+function checkWin(){
+  if (S.foundIdx.size!==S.placed.length) return;
+  Snd.stopAll(); confetti(); praise('Level complete!','mega'); Snd.victory();
+  const a=new Audio(ASSETS.audio.victory); let done=false;
+  a.onended=()=>{ if(!done){ done=true; nextLevel(); } };
+  a.onerror=()=>{ if(!done){ done=true; setTimeout(nextLevel,1200);} };
+  a.play().catch(()=>{ if(!done){ done=true; setTimeout(nextLevel,1200);} });
+  setTimeout(()=>{ if(!done){ done=true; nextLevel(); } },4000);
+}
+
+/* ---------- Level ---------- */
+function nextLevel(){ S.level++; lvlEl.textContent=S.level; startGame(true); }
+
+/* ---------- UI ---------- */
+$('#btnCfg').onclick = ()=> $('#modal').classList.add('show');
+$('.close').onclick  = ()=> $('#modal').classList.remove('show');
+$('#optSnake').onchange   = e=> S.settings.snake   = e.target.checked;
+$('#optHaptics').onchange = e=> S.settings.haptics = e.target.checked;
+$('#optTones').onchange   = e=> S.settings.tones   = e.target.checked;
+$('#optMusic').onchange = e=>{ S.settings.music = e.target.checked; if (!e.target.checked) Snd.stopAll(); };
+$('#optSfx').onchange   = e=>{ S.settings.sfx   = e.target.checked; };
+$('#optHC').onchange      = e=>{ S.settings.highContrast=e.target.checked; document.body.classList.toggle('hc',e.target.checked); };
+$('#btnHint').onclick = hint;
+
+const badgeMusic = document.getElementById('badgeMusic');
+const badgeFX    = document.getElementById('badgeFX');
+function updateBadges(){
+  badgeMusic.classList.toggle('hide', !!S.settings.music);
+  badgeFX.classList.toggle('hide', !!S.settings.fx);
+}
+$('#optRepeat').onchange  = e => S.settings.allowRepeat = e.target.checked;
+$('#optMusic').onchange   = e => { S.settings.music = e.target.checked; updateBadges(); if(!e.target.checked) Snd.stopLoop(); else Snd.startLoop(); };
+$('#optFX').onchange      = e => { S.settings.fx    = e.target.checked; updateBadges(); };
+
+function startLightningRound(){
+  document.body.classList.add('lightning');
+  //startGame();             // or your lightning init function
+}
+
+function endLightningRound(){
+  document.body.classList.remove('lightning');
+}
+
+$('#btnStart').onclick = async ()=>{
+  await Snd.userInit();
+  await Snd.userInit();
+  Snd.stopLoop?.();          // pause bg loop if it was running
+  await Snd.playSplash();    // one-shot splash SFX
+  showPicker();               // builds grid and (if Music ON) starts loop
+  //startGame();
+  modePicker.classList.remove('hide');
+};
+
+function beginMode(mode){
+  S.roundMode = mode;
+  modePicker.classList.add('hide');
+  startGame();
+}
+chooseStandard.onclick  = ()=> beginMode('standard');
+chooseLightning.onclick = ()=> beginMode('lightning');
+cancelPicker.onclick    = ()=> modePicker.classList.add('hide');
+
+/* ---------- Start / rebuild ---------- */
+  
+function startGame(){
+  splash.classList.add('hidden');
+  gameWrap.classList.remove('hide');
+
+  // backgrounds by mode
+  if (S.roundMode === 'lightning'){
+    startLightningRound();
+    document.getElementById('lava').style.display = 'none';
+    StormFX.start();
+    // 92% board opacity per your spec
+    document.querySelector('#gameCard .card')?.style.setProperty('opacity','0.92');
+    // optional haptics/sfx on strikes
+    document.addEventListener('stormfx:strike', onStormStrike);
+  } else {
+    endLightningRound();
+    document.getElementById('lava').style.display = 'block';
+    StormFX.stop();
+    document.querySelector('#gameCard .card')?.style.removeProperty('opacity');
+    document.removeEventListener('stormfx:strike', onStormStrike);
+  }
+
+  // build level
+  S.grid.length=0; S.placed.length=0; S.foundIdx.clear?.(); S.bonusWords.clear?.();
+  buildEmpty(); for(const w of WORDS) tryPlaceStraight(w); fillRandom();
+  renderWords(); renderGrid();
+  sizeCells();                               // keep in sync with new gap
+  clearBands(); clearPreview();
+  [...gridEl.children].forEach(c=>c.classList.remove('hint'));
+
+  Snd.stopAll(); 
+  updateBadges();
+  Snd.startLoop(); 
+}
+
+function beginMode(mode){
+  // reset both extras
+  Storm.stop(); stopTwister(); unmountRound();
+  document.body.classList.remove('mode-lightning','mode-round');
+
+  if (mode==='lightning'){
+    Storm.start();                           // rain/bolts + dimmed card
+  }else if (mode==='round'){
+    document.body.classList.add('mode-round');
+    mountRound(); startTwister(15,1400);     // 10–20° every 1–2s feels good
+  }
+  startGame();                               // your existing level build
+}
+
+/* open the picker after splash */
+function showPicker(){ document.getElementById('modePicker').classList.remove('hide'); }
+function hidePicker(){ document.getElementById('modePicker').classList.add('hide'); }
+
+// buttons
+document.getElementById('chooseNormal').onclick   = ()=>{ hidePicker(); beginMode('classic'); };
+document.getElementById('chooseLightning').onclick= ()=>{ hidePicker(); beginMode('lightning'); };
+document.getElementById('chooseRound').onclick    = ()=>{ hidePicker(); beginMode('round'); };
+
+// after user clicks Start (your existing handler):
+//   await Snd.userInit(); await Snd.playSplash(); showPicker();
+
+function onStormStrike(){
+  // respect your “Reduced sensory” switch (you named it highContrast)
+  if (!S.settings.highContrast){
+    Snd.thunder(3.5, 6000);                 // 🔊 play a thunder crack/rumble
+    if (navigator.vibrate) navigator.vibrate(80);
+  }
+}
+
+addEventListener('resize', sizeCells);
+addEventListener('orientationchange', ()=> setTimeout(sizeCells, 80));
+
+// on load
+document.getElementById('lava').style.display = 'none';
+
+  
+</script>
+</body>
+</html>
