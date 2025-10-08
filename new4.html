@@ -3,21 +3,25 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<script>
+  (function () {
+    var base = document.createElement('base');
+    base.href = (location.hostname.endsWith('github.io'))
+      ? '/word-search-proto/'   // project site on GitHub Pages
+      : './';                   // local dev server
+    document.head.appendChild(base);
+  })();
+</script>
+<style>
+  /* stop iOS font inflation */
+  html { -webkit-text-size-adjust:100%; text-size-adjust:100%; }
+</style>
 <title>Word-a-Roo</title>
 
-<!-- Conditional base: works locally and on GitHub Pages -->
-<script>
-(function () {
-  var base = document.createElement('base');
-  base.href = (location.hostname.endsWith('github.io')) ? '/word-search-proto/' : './';
-  document.head.appendChild(base);
-})();
-</script>
+<!-- GitHub Pages: project site base (edit if repo name changes) -->
+<base href="/word-search-proto/">
 
 <style>
-/* stop iOS font inflation */
-html { -webkit-text-size-adjust:100%; text-size-adjust:100%; }
-
 :root{
   --bg:#0c1015; --fg:#e9eef4;
   --panelW:clamp(320px,92vw,760px);
@@ -31,12 +35,11 @@ button{font:inherit}
 .hide{display:none!important}
 
 /* ---------- header chips ---------- */
-header{position:fixed;left:0;right:0;top:0;display:flex;flex-wrap:wrap;gap:.6rem;align-items:center;
+header{position:fixed;left:0;right:0;top:0;display:flex;gap:.6rem;align-items:center;
   padding:.55rem .7rem;z-index:50;pointer-events:none}
 .chip{pointer-events:auto;background:rgba(20,20,22,.72);border:1px solid rgba(255,255,255,.12);
   backdrop-filter: blur(8px); border-radius:14px; padding:.38rem .65rem;display:flex;gap:.45rem;
-  align-items:center;font-weight:800; white-space:nowrap}
-.chip.muted{opacity:.65}
+  align-items:center;font-weight:800}
 
 /* ---------- splash ---------- */
 #splash{position:fixed;inset:0;background:#000}
@@ -57,20 +60,22 @@ header{position:fixed;left:0;right:0;top:0;display:flex;flex-wrap:wrap;gap:.6rem
 }
 
 /* ===================== game container (NOT full-screen) ===================== */
+/* sits under the header, centered, with bottom breathing room for future UI */
+
 /* centers the whole card under the header and gives it a fixed play area */
 #gameWrap{
   position:fixed;
   left:50%;
   top:56px;                                /* header height */
   transform:translateX(-50%);
-  width:var(--panelW);
-  height:calc(100svh - 56px - max(12px, env(safe-area-inset-bottom)));
+  width:var(--panelW);                      /* your clamp(320px,92vw,760px) */
+  height:calc(100svh - 56px - 18px);        /* stable viewport height (iOS-safe) */
   display:flex;
   justify-content:center;
   align-items:flex-start;
   z-index:1;
 }
-
+  
 /* gradient frame */
 #gameCard{
   display:flex;
@@ -78,19 +83,34 @@ header{position:fixed;left:0;right:0;top:0;display:flex;flex-wrap:wrap;gap:.6rem
   gap:10px;
   width:100%;
   height:auto;
+  opacity: 1;
+  /* same rounded corners for all */
   border-radius:34px;
+
   background:
     linear-gradient(180deg, rgba(255,255,255,.10), rgba(255,255,255,.02)) padding-box,
     linear-gradient(90deg, #1b2a8f, #a24bff) border-box;
   border:9px solid transparent;
-  box-shadow:0 20px 50px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.12);
-  overflow:hidden;
-  clip-path: inset(0 round 34px);
+
+  box-shadow:0 20px 50px rgba(0,0,0,.35),
+             inset 0 1px 0 rgba(255,255,255,.12);
+
+  /* ✅ clipping fixes */
+  overflow:hidden;                                 /* normal clip */
+  clip-path: inset(0 round 34px);                  /* forces radius on iOS */
   -webkit-mask-image: -webkit-radial-gradient(white, black);
 }
 
-/* Lightning dim */
-.lightning #gameCard { opacity:.92; transition:opacity .4s ease; }
+/* Lightning round visual tweak */
+.lightning #gameCard {
+  opacity: 0.25;
+  animation: flashDim 3s ease-in-out infinite alternate;
+}
+@keyframes flashDim {
+  0%,80% { filter: brightness(1); }
+  85%,100% { filter: brightness(1.25); }  /* lightning flash */
+}
+
 
 /* ---------- word list (top slab) ---------- */
 #wordBar{
@@ -102,59 +122,111 @@ header{position:fixed;left:0;right:0;top:0;display:flex;flex-wrap:wrap;gap:.6rem
   box-shadow:0 1px 0 rgba(0,0,0,.06) inset, 0 6px 16px rgba(0,0,0,.05);
 }
 #wordList{
-  display:grid; grid-template-columns:repeat(3, 1fr);
-  gap:8px; text-align:center; white-space:nowrap;
+  display:grid;
+  grid-template-columns:repeat(3, 1fr);
+  gap:8px;
+  text-align:center;
+  white-space:nowrap;     /* keep each word intact */
 }
 #wordList b{ font-weight:900 } #wordList .done{ opacity:.35 }
 
 /* ---------- messages lane (middle) ---------- */
 #msgArea{
-  position:relative; min-height:72px; display:grid; place-items:center; gap:6px; text-align:center;
+  min-height:58px; display:grid; place-items:center; gap:6px; text-align:center;
   background:linear-gradient(180deg, rgba(130,130,160,.45), rgba(130,130,160,.2));
   border-left:1px solid rgba(0,0,0,.08); border-right:1px solid rgba(0,0,0,.08);
 }
+/* fine-tune vertical alignment of the message zone */
+#msgArea{
+  position:relative;
+  min-height:72px;                     /* stable lane height */
+  display:grid; place-items:center; gap:6px; text-align:center;
+  background:linear-gradient(180deg, rgba(130,130,160,.45), rgba(130,130,160,.2));
+  border-left:1px solid rgba(0,0,0,.08); border-right:1px solid rgba(0,0,0,.08);
+}
+
 #liveWord{
   display:inline-flex; gap:.05em; letter-spacing:.1em;
   font-size:clamp(28px,7vw,48px); color:#fff; text-shadow:0 2px 6px rgba(0,0,0,.5)
 }
 #liveWord .ch{ display:inline-block; transform-origin:50% 60%; animation:pop .22s cubic-bezier(.2,.8,.2,1) }
 @keyframes pop{ 0%{transform:scale(.6);opacity:0} 60%{transform:scale(1.12);opacity:1} 100%{transform:scale(1)} }
-#msgStack{ position:absolute; inset:0; display:grid; align-content:center; justify-items:center; gap:6px; pointer-events:none; }
+#msgStack{ display:grid; gap:6px }
+/* praise overlays the lane — no layout impact */
+#msgStack{
+  position:absolute; inset:0;
+  display:grid; align-content:center; justify-items:center; gap:6px;
+  pointer-events:none;
+}
 .msg{ background:rgba(0,0,0,.78); color:#fff; border-radius:999px; padding:6px 14px; font-weight:900; animation:riseFade .9s ease forwards }
 .msg.good{ background:#0a7bd1 } .msg.bad{ background:#b00020 } .msg.mega{ font-size:clamp(28px,8vw,56px); letter-spacing:.06em; padding:8px 18px }
 @keyframes riseFade{ 0%{opacity:0;transform:translateY(8px)} 60%{opacity:1;transform:translateY(0)} 100%{opacity:0;transform:translateY(-6px)} }
 
 /* ---------- board (bottom slab) ---------- */
-#board{ display:grid; place-items:center; padding-top:4px; }
-.card{
+#board{ display:grid; place-items:center; background-color: #ffffff; padding-top: 2px; }
+.cardOriginal{
   position:relative; width:100%; height:100%;
   background:#fff; border:1px solid rgba(0,0,0,.12);
-  border-radius:34px; display:grid; place-items:center;
-  overflow:hidden; clip-path: inset(0 round 34px);
-  -webkit-mask-image: -webkit-radial-gradient(white, black);
+  border-top-left-radius:8px; border-top-right-radius:8px;
+  border-bottom-left-radius:24px; border-bottom-right-radius:24px;
+  padding:18px; 
+  overflow:hidden;                     /* fallback clip */
+  /* enforce clipping of absolutely-positioned children (iOS fix) */
+  clip-path: inset(0 round 8px 8px 24px 24px);
+  -webkit-mask-image: -webkit-radial-gradient(white, black); /* belt & suspenders */
+  display:grid; place-items:center;
   box-shadow:0 0 0 1px rgba(0,0,0,.02) inset, 0 10px 24px rgba(0,0,0,.08);
-  /* NO padding (you asked for this) */
-  padding:0 !important;
 }
-/* overlays for pills: match grid edges exactly */
-#bands, #bandsPreview{ position:absolute; inset:0; pointer-events:none; }
+.card{
+  position:relative;
+  width:100%; height:100%;
+  background:#fff;
+  border:1px solid rgba(0,0,0,.12);
+  border-radius:34px;              /* match parent frame */
+  padding:18px;
+  display:grid; place-items:center;
+  overflow:hidden;
+  clip-path: inset(0 round 34px);  /* iOS Safari fix */
+  -webkit-mask-image: -webkit-radial-gradient(white, black);
+  box-shadow:0 0 0 1px rgba(0,0,0,.02) inset,
+             0 10px 24px rgba(0,0,0,.08);
+}
+/* overlays for pills */
+#bands, #bandsPreview{
+  position:absolute; inset:18px; pointer-events:none;
+}
 .band{ position:absolute; border-radius:9999px; opacity:.92 }
 .band.preview{ background:#cdb8ff; opacity:.55; filter:saturate(1.1) }
 .band.pink{background:#F59CB0} .band.purple{background:#C8B6FF} .band.green{background:#A8F5A6}
 .band.gold{background:#FFD166} .band.blue{background:#9ADAFE} .band.orange{background:#FFB07C}
 
 /* grid */
-#grid{ position:relative; display:grid; gap:4px; user-select:none; touch-action:none; }
+/* grid */
+#grid{
+  position:relative;
+  display:grid;
+  gap:10px;                      /* keep in sync with JS 'gap' below */
+  user-select:none; touch-action:none;
+  width:100%;
+  max-width:680px;               /* hard cap so it can’t balloon */
+  margin-inline:auto;
+}
+
+/* cells: use --cell from JS, not vw */
 .cell{
   display:grid; place-items:center; background:transparent; color:#000; font-weight:900;
-  width:var(--cell,56px); height:var(--cell,56px); border-radius:16px;
-  font-size:calc(var(--cell,56px) * 0.58);
+  width:var(--cell,56px); height:var(--cell,56px);
+  border-radius:16px;
+
+  /* letters follow the cell size (no vw) */
+  font-size:calc(var(--cell,56px) * 0.36);
 }
 .cell.sel{ outline:3px solid #5fb5ff; outline-offset:2px; background:#f1f6ff }
+
+/* (Optional) keep your pseudo hint; if Safari misbehaves we’ll swap to overlay later */
 .cell.hint{ position:relative }
 .cell.hint::after{ content:""; position:absolute; inset:-4px; border-radius:18px; border:3px dashed #0a7bd1; animation:pulseHint 1s ease-in-out infinite }
 @keyframes pulseHint{ 0%{opacity:.2} 50%{opacity:1} 100%{opacity:.2} }
-
 /* confetti */
 #confetti{position:fixed;inset:0;pointer-events:none;overflow:hidden;z-index:80}
 #confetti i{position:absolute;width:10px;height:10px;background:#fff;opacity:.9;animation:fall 1200ms linear forwards}
@@ -164,29 +236,84 @@ header{position:fixed;left:0;right:0;top:0;display:flex;flex-wrap:wrap;gap:.6rem
 .hc .cell{color:#000}
 .hc #wordBar{background:#000;color:#fff;border-color:#333}
 
-/* ===== Lava lamp background ===== */
-:root{ --lava-bg:#0b0b1a; --lava-a:#ff3bc0; --lava-b:#b66bff; --lava-c:#4ecbff; }
-#lava{ position:fixed; inset:0; z-index:0; overflow:hidden;
-  background: radial-gradient(120vmax 120vmax at 10% 10%, #120a2a 0, #0a0e1a 40%, var(--lava-bg) 70%);
+/* Modal (simple) */
+  #modal{position:fixed;inset:0;background:rgba(0,0,0,.5);display:none;place-items:center;z-index:60}
+  #modal.show{display:grid}
+  .panel{background:#16181d;color:#fff;border:1px solid rgba(255,255,255,.12);border-radius:18px; padding:16px; width:min(92vw,460px)}
+  .row{display:flex;align-items:center;justify-content:space-between;padding:10px 6px}
+  .panel .close{margin-top:10px;width:100%}
+/* game container: keep a little breathing room at the bottom */
+#gameWrap{
+  height:calc(100svh - 56px - max(12px, env(safe-area-inset-bottom)));
 }
-#lava .blob{ position:absolute; width:42vmax; height:42vmax; border-radius:50%; filter:blur(40px); opacity:.70; mix-blend-mode:screen; will-change:transform; animation:drift var(--t,28s) ease-in-out infinite alternate;
+
+/* message lane: smaller default height */
+#msgArea{
+  min-height:clamp(44px, 8vw, 64px);
+}
+
+/* card: slightly tighter vertical padding on phones */
+@media (max-width: 420px){
+  .card{ padding:14px 18px 16px; }
+}
+
+/* grid: tighter gap on small screens */
+@media (max-width: 420px){
+  #grid{ gap:8px; }
+}
+
+/* ===== Lava lamp background ===== */
+:root{
+  /* palette you can tune */
+  --lava-bg:#0b0b1a;
+  --lava-a:#ff3bc0;   /* magenta */
+  --lava-b:#b66bff;   /* purple  */
+  --lava-c:#4ecbff;   /* soft cyan accents */
+}
+
+#lava{
+  position:fixed; inset:0; z-index:0; overflow:hidden;
+  background:
+    radial-gradient(120vmax 120vmax at 10% 10%, #120a2a 0, #0a0e1a 40%, var(--lava-bg) 70%);
+}
+
+/* A single blurred layer, with additive blending for “glow” */
+#lava .blob{
+  position:absolute;
+  width:42vmax; height:42vmax;          /* big, so it feels soft */
+  border-radius:50%;
+  filter:blur(40px);
+  opacity:.70;
+  mix-blend-mode:screen;
+  will-change:transform;
+  animation:drift var(--t,28s) ease-in-out infinite alternate;
   background:
     radial-gradient(55% 55% at 35% 35%, var(--c1, var(--lava-a)) 0 55%, transparent 60%),
     radial-gradient(50% 50% at 70% 65%, var(--c2, var(--lava-b)) 0 55%, transparent 60%);
 }
-#lava .b1{ --c1:var(--lava-a); --c2:var(--lava-b); --t:32s; --x1:-10vw; --y1:-15vh; --x2:15vw; --y2:25vh; }
-#lava .b2{ --c1:var(--lava-b); --c2:var(--lava-a); --t:26s; --x1:60vw; --y1:-20vh; --x2:30vw; --y2:15vh; }
-#lava .b3{ --c1:var(--lava-a); --c2:var(--lava-c); --t:34s; --x1:10vw; --y1:70vh; --x2:-10vw; --y2:35vh; }
-#lava .b4{ --c1:var(--lava-b); --c2:var(--lava-c); --t:29s; --x1:75vw; --y1:60vh; --x2:55vw; --y2:20vh; }
-#lava .b5{ --c1:var(--lava-c); --c2:var(--lava-a); --t:38s; --x1:-20vw; --y1:40vh; --x2:20vw; --y2:-10vh; }
+
+/* different paths / speeds / colors for variety */
+#lava .b1{ --c1:var(--lava-a); --c2:var(--lava-b); --t:32s; --x1:-10vw; --y1:-15vh; --x2:15vw;  --y2:25vh;  }
+#lava .b2{ --c1:var(--lava-b); --c2:var(--lava-a); --t:26s; --x1:60vw;  --y1:-20vh; --x2:30vw;  --y2:15vh;  }
+#lava .b3{ --c1:var(--lava-a); --c2:var(--lava-c); --t:34s; --x1:10vw;  --y1:70vh;  --x2:-10vw; --y2:35vh;  }
+#lava .b4{ --c1:var(--lava-b); --c2:var(--lava-c); --t:29s; --x1:75vw;  --y1:60vh;  --x2:55vw;  --y2:20vh;  }
+#lava .b5{ --c1:var(--lava-c); --c2:var(--lava-a); --t:38s; --x1:-20vw; --y1:40vh;  --x2:20vw;  --y2:-10vh; }
+
+/* motion that “morphs”: translate + slow scale + slight rotate */
 @keyframes drift{
   0%   { transform: translate(var(--x1),var(--y1)) scale(0.9) rotate(0deg); }
-  50%  { transform: translate(calc((var(--x1) + var(--x2))/2), calc((var(--y1) + var(--y2))/2)) scale(1.05) rotate(10deg); }
+  50%  { transform: translate(calc((var(--x1) + var(--x2))/2),
+                               calc((var(--y1) + var(--y2))/2))
+                               scale(1.05) rotate(10deg); }
   100% { transform: translate(var(--x2),var(--y2)) scale(0.95) rotate(20deg); }
 }
-@media (prefers-reduced-motion: reduce){ #lava .blob{ animation:none; opacity:.45; } }
 
-/* ===== StormFX overlay ===== */
+/* accessibility: reduce motion → static, dimmer background */
+@media (prefers-reduced-motion: reduce){
+  #lava .blob{ animation:none; opacity:.45; }
+}
+
+/* ===== StormFX overlay (converted from SCSS) ===== */
 #stormFX.storm{
   position:fixed; inset:0; z-index:0;
   background-color:#222;
@@ -216,7 +343,7 @@ header{position:fixed;left:0;right:0;top:0;display:flex;flex-wrap:wrap;gap:.6rem
   #stormFX.storm::after{ animation:none; background-color:rgba(34,34,34,.85) }
 }
 
-/* ===== Mode Picker ===== */
+/* ===== Mode Picker (simple sheet) ===== */
 .sheet{ position:fixed; inset:0; display:grid; place-items:center; background:rgba(0,0,0,.6); z-index:60 }
 .sheet.hide{ display:none }
 .sheetCard{
@@ -230,20 +357,27 @@ header{position:fixed;left:0;right:0;top:0;display:flex;flex-wrap:wrap;gap:.6rem
 .mBtn.strong{ background:#0a7bd1 }
 .ghostBtn{ width:100%; appearance:none; border:1px solid #444; background:transparent; color:#ddd;
   border-radius:10px; padding:10px 12px; margin-top:8px; }
+
+/* ===== Your grid/card spacing tweaks ===== */
+/* 1) remove inner card padding, keep rounded border */
+.card{ padding:0 !important; }
+/* 2) bands overlay now matches edges exactly (no 18px inset anymore) */
+#bands, #bandsPreview{ inset:0 !important; }
+/* 3) tighter grid gap */
+#grid{ gap:4px !important; }
+/* 4) small breathing room above bottom slab */
+#board{ padding-top:4px; }
+
 </style>
 </head>
 <body>
-
-<!-- Lava background (standard) -->
+<!-- Animated lava-lamp background -->
 <div id="lava" aria-hidden="true">
-  <div class="blob b1"></div><div class="blob b2"></div><div class="blob b3"></div><div class="blob b4"></div><div class="blob b5"></div>
-</div>
-
-<!-- Storm overlay (lightning) -->
-<div id="stormFX" aria-hidden="true" class="storm hide">
-  <canvas id="sfx-c1"></canvas>
-  <canvas id="sfx-c2"></canvas>
-  <canvas id="sfx-c3"></canvas>
+  <div class="blob b1"></div>
+  <div class="blob b2"></div>
+  <div class="blob b3"></div>
+  <div class="blob b4"></div>
+  <div class="blob b5"></div>
 </div>
 
 <!-- Splash -->
@@ -256,12 +390,17 @@ header{position:fixed;left:0;right:0;top:0;display:flex;flex-wrap:wrap;gap:.6rem
 <header>
   <div id="btnCfg" class="chip">⚙️ Settings</div>
   <div id="btnHint" class="chip">💡 Hint</div>
-  <div id="badgeMusic" class="chip muted hide">🔇 Music Off</div>
-  <div id="badgeFX" class="chip muted hide">🔕 FX Off</div>
   <div class="chip">Level <span id="lvl">1</span></div>
 </header>
 
-<!-- Mode Picker -->
+<!-- Lightning Round background (off by default) -->
+<div id="stormFX" aria-hidden="true" class="storm hide">
+  <canvas id="sfx-c1"></canvas>
+  <canvas id="sfx-c2"></canvas>
+  <canvas id="sfx-c3"></canvas>
+</div>
+
+<!-- Mode Picker (shown after Start) -->
 <section id="modePicker" class="sheet hide" aria-label="Choose mode">
   <div class="sheetCard">
     <h3>Choose next round</h3>
@@ -274,7 +413,7 @@ header{position:fixed;left:0;right:0;top:0;display:flex;flex-wrap:wrap;gap:.6rem
   </div>
 </section>
 
-<!-- GAME -->
+<!-- GAME: container with three lanes -->
 <main id="gameWrap" class="hide">
   <div id="gameCard">
     <!-- TOP -->
@@ -296,17 +435,14 @@ header{position:fixed;left:0;right:0;top:0;display:flex;flex-wrap:wrap;gap:.6rem
 </main>
 
 <!-- Settings -->
-<div id="modal" class="hide">
-  <div class="panel" style="background:#16181d;color:#fff;border:1px solid rgba(255,255,255,.12);border-radius:18px; padding:16px; width:min(92vw,460px); margin:10vh auto;">
+<div id="modal">
+  <div class="panel">
     <h3 style="margin:0 0 8px 0">Settings</h3>
-    <div class="row" style="display:flex;align-items:center;justify-content:space-between;padding:10px 6px"><label>Snake Charmer (curving paths)</label><input type="checkbox" id="optSnake" checked></div>
-    <div class="row" style="display:flex;align-items:center;justify-content:space-between;padding:10px 6px"><label>Allow letter reuse (snake)</label><input type="checkbox" id="optRepeat" checked></div>
-    <div class="row" style="display:flex;align-items:center;justify-content:space-between;padding:10px 6px"><label>Music</label><input type="checkbox" id="optMusic" checked></div>
-    <div class="row" style="display:flex;align-items:center;justify-content:space-between;padding:10px 6px"><label>Audio FX</label><input type="checkbox" id="optFX" checked></div>
-    <div class="row" style="display:flex;align-items:center;justify-content:space-between;padding:10px 6px"><label>Tones on drag</label><input type="checkbox" id="optTones" checked></div>
-    <div class="row" style="display:flex;align-items:center;justify-content:space-between;padding:10px 6px"><label>Haptics</label><input type="checkbox" id="optHaptics" checked></div>
-    <div class="row" style="display:flex;align-items:center;justify-content:space-between;padding:10px 6px"><label>Reduced sensory</label><input type="checkbox" id="optHC"></div>
-    <button class="close" style="margin-top:10px;width:100%">Close</button>
+    <div class="row"><label>Snake Charmer (curving paths)</label><input type="checkbox" id="optSnake" checked></div>
+    <div class="row"><label>Haptics</label><input type="checkbox" id="optHaptics" checked></div>
+    <div class="row"><label>Tones on drag</label><input type="checkbox" id="optTones" checked></div>
+    <div class="row"><label>Reduced sensory</label><input type="checkbox" id="optHC"></div>
+    <button class="close">Close</button>
   </div>
 </div>
 
@@ -315,19 +451,20 @@ header{position:fixed;left:0;right:0;top:0;display:flex;flex-wrap:wrap;gap:.6rem
 <script>
 /* ===== StormFX: Rain + Lightning (fast) ===== */
 const StormFX = (()=>{
-  let c1,c2,c3,ctx1,ctx2,ctx3,w,h,rafId=null;
+  let wrap, c1, c2, c3, ctx1, ctx2, ctx3, w, h, rafId=null;
   const CFG = {
     rainThroughCount: 400, rainCount: 400, rainThroughSpeed: 25,
-    strikeEveryMs: [1200, 2600],          // calmer defaults (tweak as you like)
-    boltStepPerFrame: 4, boltPathLimit: [22, 34],
+    strikeEveryMs: [500, 1200],      // FAST strikes
+    boltStepPerFrame: 4,             // grow faster each frame
+    boltPathLimit: [22, 34],         // shorter paths
     boltYRange: [12, 28], boltXRange: [6, 26],
-    flashChanceBack: 0.04, alphaFade: [0.01, 0.30], lineWidthBase: 3
+    flashChanceBack: 0.06, alphaFade: [0.01, 0.30], lineWidthBase: 3
   };
   const S = { rainTrough:[], rain:[], lightning:[], nextStrikeAt:0, running:false };
   const rand=(a,b)=>a+Math.random()*(b-a), pick=(a,b)=>Math.floor(rand(a,b));
   function mount(){
+    wrap=document.getElementById('stormFX'); if(!wrap) return;
     c1=document.getElementById('sfx-c1'); c2=document.getElementById('sfx-c2'); c3=document.getElementById('sfx-c3');
-    if (!c1) return;
     ctx1=c1.getContext('2d'); ctx2=c2.getContext('2d'); ctx3=c3.getContext('2d');
     onResize(); buildRain(); scheduleNextStrike(); addEventListener('resize', onResize);
   }
@@ -338,7 +475,7 @@ const StormFX = (()=>{
   }
   function scheduleNextStrike(){ const [a,b]=CFG.strikeEveryMs; S.nextStrikeAt=performance.now()+pick(a,b); }
   function createLightning(){
-    const x=rand(100,w-100), y=rand(0,h/4), n=pick(1,2); // fewer forks
+    const x=rand(100,w-100), y=rand(0,h/4), n=pick(1,3);
     for(let i=0;i<n;i++) S.lightning.push({x,y,xRange:rand(CFG.boltXRange[0],CFG.boltXRange[1]),yRange:rand(CFG.boltYRange[0],CFG.boltYRange[1]),path:[{x,y}],pathLimit:pick(CFG.boltPathLimit[0],CFG.boltPathLimit[1])});
   }
   const clearRain=()=>{ctx1.clearRect(0,0,w,h); ctx2.clearRect(0,0,w,h);};
@@ -370,7 +507,7 @@ const StormFX = (()=>{
       ctx3.beginPath(); ctx3.moveTo(L.x,L.y); for(let p=0;p<L.path.length;p++) ctx3.lineTo(L.path[p].x,L.path[p].y);
       let lw=CFG.lineWidthBase; if(pick(0,15)===0) lw=6; if(pick(0,30)===0) lw=8;
       ctx3.lineWidth=lw; ctx3.lineJoin='miter'; ctx3.strokeStyle='rgba(255,255,255,0.10)'; ctx3.stroke();
-      if(Math.random()<CFG.flashChanceBack){ ctx3.fillStyle=`rgba(255,255,255,${rand(0.01,0.03)})`; ctx3.fillRect(0,0,w,h); }
+      if(Math.random()<0.06){ ctx3.fillStyle=`rgba(255,255,255,${rand(0.01,0.03)})`; ctx3.fillRect(0,0,w,h); }
     }
   }
   function step(now){
@@ -383,28 +520,28 @@ const StormFX = (()=>{
   return { mount, start, stop, CFG };
 })();
 document.addEventListener('DOMContentLoaded', ()=> StormFX.mount());
-</script>
 
-<script>
-/* ---------- Assets ---------- */
+/* ---------- Assets (base tag handles the /word-search-proto/ prefix) ---------- */
 const ASSETS = {
   img:   { splash:'assets/img/splash.png', search:'assets/img/search.png' },
   audio: {
     splash:'assets/audio/splash.mp3',
     search:'assets/audio/search.mp3',
     victory:'assets/audio/victory.mp3',
-    thunder1:'assets/audio/thunder1.mp3',
-    thunder2:'assets/audio/thunder2.mp3'
+    thunder1:'assets/audio/thunder_crack.mp3',   // NEW
+    thunder2:'assets/audio/thunder_rumble.mp3'    // NEW
   }
 };
 
-/* ---------- Tiny audio helper ---------- */
+/* ---------- Tiny audio helper (unlocked once) ---------- */
+/* ---------- Tiny audio helper (unlocked once) ---------- */
 const Snd = (() => {
   const aSplash = new Audio(ASSETS.audio.splash);
   const aLoop   = new Audio(ASSETS.audio.search);
   const aWin    = new Audio(ASSETS.audio.victory);
   const aTh1    = new Audio(ASSETS.audio.thunder1);
   const aTh2    = new Audio(ASSETS.audio.thunder2);
+
   aLoop.loop = true; aLoop.volume = .55;
   [aSplash,aLoop,aWin,aTh1,aTh2].forEach(a => { try{ a.preload='auto'; a.crossOrigin='anonymous'; }catch{} });
 
@@ -414,61 +551,71 @@ const Snd = (() => {
     if (unlocked) return;
     try{
       ctx = new (window.AudioContext||window.webkitAudioContext)();
-      await ctx.resume();
+      await ctx.resume();               // iOS unlock (silent)
+      // Just load — avoid play() during unlock to keep Safari happy
       [aSplash,aLoop,aWin,aTh1,aTh2].forEach(a=>a.load());
     }catch{}
     unlocked = true;
   }
 
   async function playSplash(){ try{ aSplash.currentTime=0; await aSplash.play(); }catch{} }
-  async function startLoop(){
-    if (!S.settings.music) return;
-    try{ aLoop.currentTime=0; await aLoop.play(); }catch{}
-  }
-  function stopLoop(){ try{ aLoop.pause(); }catch{} }
+  async function startLoop(){ try{ aLoop.currentTime=0; await aLoop.play(); }catch{} }
   function stopAll(){ [aSplash,aLoop,aWin,aTh1,aTh2].forEach(a=>{ try{a.pause()}catch{} }); }
+  async function victory(){ try{ aWin.currentTime=0; await aWin.play(); }catch{} }
 
-  async function victory(){
-    if (!S.settings.fx) return;
-    try{ aWin.currentTime=0; await aWin.play(); }catch{}
-  }
-
-  // loop duck
+  // --- loop ducking (fade down/up) ---
   function duck(to=0.25, ms=260){
     clearTimeout(duckTimer);
     const from = aLoop.volume;
     const steps = 13, dt = ms/steps;
     let i=0;
-    const tick = ()=>{ i++; aLoop.volume = from + (to-from)*(i/steps); if (i<steps) duckTimer=setTimeout(tick, dt); };
+    const tick = ()=>{
+      i++; aLoop.volume = from + (to-from)*(i/steps);
+      if (i<steps) duckTimer=setTimeout(tick, dt);
+    };
     tick();
   }
   function unduck(ms=380){
     clearTimeout(duckTimer);
-    const from = aLoop.volume, to = .55;
+    const from = aLoop.volume, to = .55; // your normal loop volume
     const steps = 16, dt = ms/steps;
     let i=0;
-    const tick = ()=>{ i++; aLoop.volume = from + (to-from)*(i/steps); if (i<steps) duckTimer=setTimeout(tick, dt); };
+    const tick = ()=>{
+      i++; aLoop.volume = from + (to-from)*(i/steps);
+      if (i<steps) duckTimer=setTimeout(tick, dt);
+    };
     tick();
   }
 
-  async function thunder(prob=0.5, minGapMs=2500){
-    if (!S.settings.fx) return;
+  // --- thunder (rate-limited, random clip) ---
+  async function thunder(prob=0.8, minGapMs=900){
     const now = performance.now();
-    if (Math.random() > prob) return;
-    if (now - lastThunder < minGapMs) return;
+    if (Math.random() > prob) return;           // not every strike
+    if (now - lastThunder < minGapMs) return;   // rate limit
     lastThunder = now;
+
+    // pick a clip
     const a = (Math.random()<0.5 ? aTh1 : aTh2);
     try{
       duck();
-      a.currentTime=0; try{ a.pause(); }catch{};
+      a.currentTime = 0;
+      // Don’t overlap if same clip mid-play (optional)
+      try{ a.pause(); }catch{}
       await a.play();
-      let cleared=false; const done=()=>{ if(!cleared){ cleared=true; unduck(); } };
-      a.onended=done; setTimeout(done, 2200);
-    }catch{ unduck(); }
+      // restore loop volume after clip ends (or max 2s safety)
+      const safetime = 2000;
+      let cleared=false;
+      const done=()=>{ if (!cleared){ cleared=true; unduck(); } };
+      a.onended = done;
+      setTimeout(done, safetime);
+    }catch{
+      unduck();
+    }
   }
 
+  // tiny tone + haptic (unchanged)
   function tone(freq=440, dur=0.06){
-    if (!S.settings.fx || !S.settings.tones || !ctx) return;
+    if (!S.settings.tones || !ctx) return;
     const o=ctx.createOscillator(), g=ctx.createGain();
     o.connect(g).connect(ctx.destination); o.type='sine'; o.frequency.value=freq;
     const t=ctx.currentTime; g.gain.setValueAtTime(0.0001,t);
@@ -476,52 +623,129 @@ const Snd = (() => {
     g.gain.exponentialRampToValueAtTime(0.0001,t+dur);
     o.start(t); o.stop(t+dur+0.02);
   }
+  function haptic(ms=8){ if (S.settings.haptics && navigator.vibrate) navigator.vibrate(ms); }
 
-  function haptic(ms=8){
-    if (!S.settings.fx || !S.settings.haptics) return;
-    if (navigator.vibrate) navigator.vibrate(ms);
-  }
-
-  return { userInit, playSplash, startLoop, stopLoop, stopAll, victory, thunder, tone, haptic };
+  return { userInit, playSplash, startLoop, stopAll, victory, thunder, tone, haptic };
 })();
 
 /* ---------- Data ---------- */
 const WORDS = ['BIRD','BUG','CLOUD','DRAGON','KITE','EMIT'];
-const WORD_INDEX = new Map(WORDS.map((w, i) => [w, i]));
 const DICT = new Set(['BIRD','BUG','CLOUD','DRAGON','KITE','EMIT','TIME','TIDE','TREE','STONE','RING','ROAD','RAIN','WIND','FIRE','WATER','EARTH','AIR','SUN','STAR','MOON']);
+
+const modePicker = document.getElementById('modePicker');
+const chooseStandard  = document.getElementById('chooseStandard');
+const chooseLightning = document.getElementById('chooseLightning');
+const cancelPicker    = document.getElementById('cancelPicker');
 
 /* ---------- State ---------- */
 const S = {
-  roundMode:'standard',
   level:1, rows:7, cols:6, grid:[], placed:[], foundIdx:new Set(), bonusWords:new Set(),
-  dragging:false, selPath:[],
-  settings:{ snake:true, allowRepeat:true, haptics:true, tones:true, highContrast:false, music:true, fx:true },
+  dragging:false, selPath:[], settings:{ snake:true, haptics:true, tones:true, highContrast:false },
   bandColors:['pink','purple','green','gold','blue','orange']
 };
-S.curDir=[0,0]; S.segLen=0; S.minTurnLen=1;
-
+S.curDir = [0,0];        // current snapped direction (dr,dc)
+S.segLen = 0;            // cells traveled in current segment
+S.minTurnLen = 1;        // require 2 cells straight before turning
+S.roundMode = 'standard'; // or 'lightning'
 /* ---------- DOM ---------- */
 const $ = s => document.querySelector(s);
 const splash = $('#splash'), gridEl = $('#grid'), bandsEl = $('#bands'), previewEl = $('#bandsPreview');
 const wordList = $('#wordList'), lvlEl = $('#lvl'), gameWrap = $('#gameWrap');
-const modePicker = $('#modePicker'); const chooseStandard = $('#chooseStandard'); const chooseLightning = $('#chooseLightning'); const cancelPicker = $('#cancelPicker');
-const badgeMusic = $('#badgeMusic'); const badgeFX = $('#badgeFX');
 
 /* ---------- Helpers ---------- */
 const R = n => Math.floor(Math.random()*n);
 const idx=(r,c)=> r*S.cols+c, inb=(r,c)=> r>=0&&c>=0&&r<S.rows&&c<S.cols;
 const rcOf=id=> [(id/S.cols)|0, id%S.cols];
 function lettersOf(path){ return path.map(id=>S.grid[id]).join(''); }
+// screen-space center for a grid cell
+// center point of a cell in client coords
+function cellCenterClient(id){
+  const r = gridEl.children[id].getBoundingClientRect();
+  return { x: r.left + r.width/2, y: r.top + r.height/2 };
+}
+// snap any angle to one of 8 unit directions
+function snapDir(dx, dy){
+  if (dx===0 && dy===0) return [0,0];
+  const a = Math.atan2(dy, dx);              // -PI..PI
+  // 8-way bins every 45° centered on axes (±22.5° tolerance)
+  const step = Math.PI / 4;                  // 45°
+  const bin  = Math.round(a / step);
+  const dir  = bin % 8;
+  // map bin → (dr,dc)
+  const map = [
+    [ 0, 1],  // 0: →
+    [-1, 1],  // 1: ↗
+    [-1, 0],  // 2: ↑
+    [-1,-1],  // 3: ↖
+    [ 0,-1],  // 4: ←
+    [ 1,-1],  // 5: ↙
+    [ 1, 0],  // 6: ↓
+    [ 1, 1],  // 7: ↘
+  ];
+  return map[(dir+8)%8];
+}
 
+// get neighbor id in given (dr,dc), or -1 if OOB
+function neighborInDir(id, dr, dc){
+  const [r,c] = rcOf(id);
+  const rr = r + dr, cc = c + dc;
+  return inb(rr,cc) ? idx(rr,cc) : -1;
+}
+  
+/* grid size to fit card width (no extra white) */
+function setupGridSize(){
+  const cols = S.cols, rows = S.rows;
+  const gap  = 10;   // must match #grid { gap }
+  const pad  = 18;   // must match .card { padding }
+
+  const card = document.querySelector('.card');
+
+  // Inner content box of the card
+  const innerW = card.clientWidth  - pad*2;
+  const innerH = card.clientHeight - pad*2;
+
+  // Max cell size that fits width and height
+  const cellW = Math.floor((innerW - gap*(cols-1)) / cols);
+  const cellH = Math.floor((innerH - gap*(rows-1)) / rows);
+  const cell  = Math.min(68, cellW, cellH);   // honor your 68px cap
+
+  // Apply
+  gridEl.style.gridTemplateColumns = `repeat(${cols}, ${cell}px)`;
+  gridEl.style.setProperty('--cell', `${cell}px`);
+
+  // Optional: make the card hug the grid (no extra white)
+  const fit = getComputedStyle(card).getPropertyValue('--board-fit').trim();
+  if (fit === 'tight'){
+    const exactH = rows*cell + gap*(rows-1) + pad*2;
+    card.style.height = exactH + 'px';
+  } else {
+    card.style.height = '100%';   // fill lane; grid will be centered
+  }
+}
+
+// function sizeCells(){
+//   const isNarrow = gridEl.clientWidth <= 420;
+//   const gap = isNarrow ? 8 : 10;     // MUST match CSS media queries
+//   const cols = S.cols;
+//   const w = gridEl.clientWidth;
+//   const cell = Math.min(68, Math.floor((w - gap*(cols-1)) / cols));
+//   gridEl.style.setProperty('--cell', cell + 'px');
+//   // also keep the grid-template-columns in sync if you prefer fixed pixels:
+//   gridEl.style.gridTemplateColumns = `repeat(${cols}, ${cell}px)`;
+// }
 function sizeCells(){
-  const gap = 4;                       // sync with CSS
+  const gap = 4;                       // 👈 sync with CSS
   const cols = S.cols;
-  const w = gridEl.clientWidth || gridEl.offsetWidth || 320;
+  const w = gridEl.clientWidth;
   const cell = Math.min(68, Math.floor((w - gap*(cols-1)) / cols));
   gridEl.style.setProperty('--cell', cell + 'px');
   gridEl.style.gridTemplateColumns = `repeat(${cols}, ${cell}px)`;
 }
 
+function cellPx(){
+  const v = getComputedStyle(gridEl).getPropertyValue('--cell');
+  return Math.max(20, parseFloat(v)||56);
+}  
 /* ---------- Build / place ---------- */
 function buildEmpty(){ S.grid = Array(S.rows*S.cols).fill(''); }
 function allowedDirs(){ return [[0,1],[1,0],[1,1],[1,-1],[-1,1],[-1,-1],[0,-1],[-1,0]]; }
@@ -557,11 +781,14 @@ function renderGrid(){
     const d=document.createElement('div'); d.className='cell'; d.textContent=S.grid[i]; d.dataset.idx=i;
     gridEl.appendChild(d);
   }
-  sizeCells();
+  //setupGridSize();
 }
 function renderWords(){
   wordList.innerHTML='';
-  WORDS.forEach((w,i)=>{ const el=document.createElement('span'); el.innerHTML=`<b>${w}</b>`; el.id='word_'+i; wordList.appendChild(el); });
+  WORDS.forEach((w,i)=>{
+    const el=document.createElement('span'); el.innerHTML=`<b>${w}</b>`; el.id='word_'+i;
+    wordList.appendChild(el);
+  });
 }
 function markWordDone(i){ $('#word_'+i)?.classList.add('done'); }
 
@@ -617,141 +844,159 @@ function setLiveWord(str){
 }
 function updateLiveWord(){ setLiveWord(S.selPath.length?lettersOf(S.selPath):''); }
 
-/* Snake-aware match */
 function tryMatchCurrent(sel){
-  if (S.settings.snake){
-    const w  = lettersOf(sel);
-    const wr = w.split('').reverse().join('');
-    let i = WORD_INDEX.get(w);
-    if (i != null && !S.foundIdx.has(i)) return { type:'word', index:i, drawPath: sel.slice() };
-    i = WORD_INDEX.get(wr);
-    if (i != null && !S.foundIdx.has(i)) return { type:'word', index:i, drawPath: sel.slice().reverse() };
-    return null;
-  }
-  // straight mode: match placed paths
-  for (let i=0;i<S.placed.length;i++){
-    const wordIdx = WORD_INDEX.get(S.placed[i].text);
-    if (S.foundIdx.has(wordIdx)) continue;
-    const p=S.placed[i].path;
+  for(let i=0;i<S.placed.length;i++){
+    if (S.foundIdx.has(i)) continue; const p=S.placed[i].path;
     if (p.length!==sel.length) continue;
-    const fwd=p.every((v,k)=>v===sel[k]);
-    const rev=p.every((v,k)=>v===sel[p.length-1-k]);
-    if (fwd||rev) return { type:'placed', index:i, drawPath:p.slice() };
-  }
-  return null;
+    const fwd=p.every((v,k)=>v===sel[k]), rev=p.every((v,k)=>v===sel[p.length-1-k]);
+    if (fwd||rev) return i;
+  } return -1;
 }
-
-/* Claim a found word */
-function claim(match){
-  const i = match.index;
-  let wordIdx = i;
-  if (match.type === 'placed'){ const word = S.placed[i].text; wordIdx = WORD_INDEX.get(word); }
-  if (wordIdx == null) return;
-  S.foundIdx.add(wordIdx);
-  markWordDone(wordIdx);
-  const color=S.bandColors[wordIdx % S.bandColors.length];
-  drawPillForPath(match.drawPath || (S.placed[i] && S.placed[i].path) || [], color);
+function claim(i){
+  S.foundIdx.add(i); markWordDone(i);
+  const color=S.bandColors[i%S.bandColors.length]; drawPillForPath(S.placed[i].path,color);
   praise('Nice!');
   checkWin();
 }
+function praise(msg,type='good'){ const n=document.createElement('div'); n.className='msg '+type; n.textContent=msg; document.getElementById('msgStack').appendChild(n); setTimeout(()=>n.remove(),1100); }
 
-let activePointer=null;
+let activePointer = null;
 
-/* pointerdown */
 gridEl.addEventListener('pointerdown', e=>{
-  const el=e.target.closest('.cell'); if(!el) return;
-  gridEl.setPointerCapture(e.pointerId); activePointer=e.pointerId;
-  S.dragging=true; S.selPath=[+el.dataset.idx];
-  S.curDir=[0,0]; S.segLen=0;
+  const el = e.target.closest('.cell'); if(!el) return;
+  gridEl.setPointerCapture(e.pointerId); activePointer = e.pointerId;
+
+  S.dragging = true;
+  S.selPath  = [+el.dataset.idx];
+  S.curDir   = [0,0];
+  S.segLen   = 0;
+
   updateCellSelection(); redrawPreview(); updateLiveWord();
   e.preventDefault();
 },{passive:false});
 
-/* pointermove */
 gridEl.addEventListener('pointermove', e=>{
-  if(!S.dragging||e.pointerId!==activePointer) return;
-  const el=document.elementFromPoint(e.clientX,e.clientY)?.closest('.cell'); if(!el) return;
-  const id=+el.dataset.idx;
-  const last=S.selPath[S.selPath.length-1]; if (id===last) return;
+  if (!S.dragging || e.pointerId !== activePointer) return;
 
-  // backtrack
-  const prev=S.selPath[S.selPath.length-2];
-  if (prev!=null && id===prev){ S.selPath.pop(); if (S.segLen>0) S.segLen--; if (S.segLen===0) S.curDir=[0,0];
-    updateCellSelection(); redrawPreview(); updateLiveWord(); return; }
+  const lastId = S.selPath[S.selPath.length-1];
+  const lastR  = gridEl.children[lastId].getBoundingClientRect();
+  const lastCx = lastR.left + lastR.width/2;
+  const lastCy = lastR.top  + lastR.height/2;
 
-  if (!neighbors(last).includes(id)) return;
+  // Build neighbor candidates (8-way)
+  const dirs = [[1,0],[-1,0],[0,1],[0,-1],[1,1],[-1,-1],[1,-1],[-1,1]];
+  const candidates = [];
+  for (const [dr,dc] of dirs){
+    const [r,c] = rcOf(lastId);
+    const rr=r+dr, cc=c+dc;
+    if (!inb(rr,cc)) continue;
+    const nid = idx(rr,cc);
+    // allow backtrack one step but not revisiting old cells
+    const prev = S.selPath[S.selPath.length-2];
+    if (nid !== prev && S.selPath.includes(nid)) continue;
 
-  // Reuse policy
-  if (!S.settings.snake || !S.settings.allowRepeat){
-    if (S.selPath.includes(id)) return;
-  } else {
-    // optional hard cap to avoid wild spirals
-    const LONGEST = Math.max(...WORDS.map(w=>w.length));
-    if (S.selPath.length > LONGEST + 6) return;
+    const nb = gridEl.children[nid].getBoundingClientRect();
+    const nCx = nb.left + nb.width/2;
+    const nCy = nb.top  + nb.height/2;
+    const dx = e.clientX - nCx;
+    const dy = e.clientY - nCy;
+    const dist2 = dx*dx + dy*dy;
+    candidates.push({ nid, dr, dc, dist2 });
+  }
+  if (!candidates.length) return;
+
+  // Choose the neighbor whose center is closest to the finger
+  candidates.sort((a,b)=> a.dist2 - b.dist2);
+  const best = candidates[0];
+
+  // Gate: only advance if you're reasonably close to that neighbor
+  const d = Math.sqrt(best.dist2);
+  const threshold = cellPx()*0.55; // tweak 0.5–0.65 to taste
+  if (d > threshold) return;
+
+  // Hysteresis: require some straight cells before allowing a turn
+  const turning = (S.curDir[0] || S.curDir[1]) && (best.dr!==S.curDir[0] || best.dc!==S.curDir[1]);
+  if (turning && S.segLen < S.minTurnLen) return;
+
+  // Handle backtrack
+  const prev = S.selPath[S.selPath.length-2];
+  if (prev!=null && best.nid===prev){
+    S.selPath.pop();
+    if (S.segLen>0) S.segLen--;
+    if (S.segLen===0) S.curDir=[0,0];
+    updateCellSelection(); redrawPreview(); updateLiveWord();
+    return;
   }
 
-  // Straight-only when snake off
+  // Straight-only mode when snake is off
   if (!S.settings.snake && S.selPath.length>=1){
-    const [lr,lc]=rcOf(last), [r,c]=rcOf(id);
-    const dr=Math.sign(r-lr), dc=Math.sign(c-lc);
-    if (S.curDir[0]===0 && S.curDir[1]===0) S.curDir=[dr,dc];
-    else if (dr!==S.curDir[0] || dc!==S.curDir[1]) return;
+    if (S.curDir[0]===0 && S.curDir[1]===0){ S.curDir=[best.dr,best.dc]; }
+    else if (best.dr!==S.curDir[0] || best.dc!==S.curDir[1]) return;
   }
 
-  // Hysteresis: require some straightness before turning (only matters snake on)
-  if (S.settings.snake && S.minTurnLen>1 && S.selPath.length>=2){
-    const [lr,lc]=rcOf(last), [r,c]=rcOf(id);
-    const dr=Math.sign(r-lr), dc=Math.sign(c-lc);
-    const turning = (S.curDir[0] || S.curDir[1]) && (dr!==S.curDir[0] || dc!==S.curDir[1]);
-    if (turning && S.segLen < S.minTurnLen) return;
-  }
-
-  // accept
-  S.selPath.push(id);
-  const [lr,lc]=rcOf(last), [r,c]=rcOf(id);
-  const dr=Math.sign(r-lr), dc=Math.sign(c-lc);
-  if (S.curDir[0]===dr && S.curDir[1]===dc) S.segLen++; else { S.curDir=[dr,dc]; S.segLen=1; }
+  // Accept step
+  S.selPath.push(best.nid);
+  if (S.curDir[0]===best.dr && S.curDir[1]===best.dc) S.segLen++;
+  else { S.curDir=[best.dr,best.dc]; S.segLen=1; }
 
   updateCellSelection(); redrawPreview(); updateLiveWord();
   Snd.haptic(6); Snd.tone(300 + S.selPath.length*60, 0.05);
 },{passive:false});
-
-/* end selection */
+  
 function endSelection(){
-  if(!S.dragging) return; S.dragging=false; activePointer=null;
+  if (!S.dragging) return;
+  S.dragging = false; activePointer = null;
 
+  // --- FULL UNDO: cancel if only 0–1 cells selected ---
   if (S.selPath.length <= 1){
-    S.selPath.length=0; S.curDir=[0,0]; S.segLen=0;
-    updateCellSelection(); clearPreview(); updateLiveWord(); return;
+    S.selPath.length = 0;
+    S.curDir = [0,0];
+    S.segLen = 0;
+    updateCellSelection();
+    clearPreview();
+    updateLiveWord();
+    return;       // <- nothing happens
   }
 
-  const match = tryMatchCurrent(S.selPath);
-  if (match){ claim(match); }
-  else{
-    const w = lettersOf(S.selPath);
-    const isTarget = WORD_INDEX.has(w) || WORD_INDEX.has(w.split('').reverse().join(''));
-    if (!isTarget && S.selPath.length>=3 && DICT.has(w)){
-      S.bonusWords.add(w); drawPillForPath(S.selPath,'gold'); praise('Great find! '+w);
-    } else { praise('Not a word','bad'); }
+  // normal resolution flow below
+  const w = lettersOf(S.selPath);
+  const matchIdx = tryMatchCurrent(S.selPath);
+  if (matchIdx >= 0){
+    claim(matchIdx);
+  } else {
+    // optional: only judge “not a word” when len >= 3
+    if (S.selPath.length >= 3 && DICT.has(w) &&
+        !S.placed.some(p => p.text===w || p.text===w.split('').reverse().join(''))){
+      S.bonusWords.add(w);
+      drawPillForPath(S.selPath,'gold');
+      praise('Great find! '+w);
+    } else {
+      // comment this out if you want silence for any miss
+      praise('Not a word','bad');
+    }
   }
 
-  S.selPath.length=0; S.curDir=[0,0]; S.segLen=0;
-  updateCellSelection(); clearPreview(); updateLiveWord();
+  S.selPath.length = 0;
+  S.curDir = [0,0];
+  S.segLen = 0;
+  updateCellSelection();
+  clearPreview();
+  updateLiveWord();
 }
-addEventListener('pointerup', endSelection, {passive:true});
+  addEventListener('pointerup', endSelection, {passive:true});
 addEventListener('pointercancel', ()=>{ S.dragging=false; activePointer=null; S.selPath.length=0; updateCellSelection(); clearPreview(); updateLiveWord(); }, {passive:true});
 
 /* ---------- Hint ---------- */
 function hint(){
-  // find first unfound WORD index (by list order)
-  const nextIdx = WORDS.findIndex((w,i)=>!S.foundIdx.has(i));
-  if (nextIdx<0) return;
-  // choose first cell of any placed instance of that word (simple)
-  const placed = S.placed.find(p=>p.text===WORDS[nextIdx]);
-  if (!placed) return;
-  const firstId = placed.path[0];
+  const i = S.placed.findIndex((p,ix)=>!S.foundIdx.has(ix));
+  if (i<0) return;
+  const firstId = S.placed[i].path[0];
+
   [...gridEl.children].forEach(c=>c.classList.remove('hint'));
-  const cell = gridEl.children[firstId]; cell.classList.add('hint');
+  const cell = gridEl.children[firstId];
+  cell.classList.add('hint');
+
+  // Auto-remove hint after 1 second
   setTimeout(()=> cell.classList.remove('hint'), 1000);
 }
 
@@ -766,40 +1011,43 @@ function confetti(){
   } setTimeout(()=>host.innerHTML='',1600);
 }
 function checkWin(){
-  if (S.foundIdx.size!==WORDS.length) return;
+  if (S.foundIdx.size!==S.placed.length) return;
   Snd.stopAll(); confetti(); praise('Level complete!','mega'); Snd.victory();
-  setTimeout(()=> nextLevel(), 1400);
+  const a=new Audio(ASSETS.audio.victory); let done=false;
+  a.onended=()=>{ if(!done){ done=true; nextLevel(); } };
+  a.onerror=()=>{ if(!done){ done=true; setTimeout(nextLevel,1200);} };
+  a.play().catch(()=>{ if(!done){ done=true; setTimeout(nextLevel,1200);} });
+  setTimeout(()=>{ if(!done){ done=true; nextLevel(); } },4000);
 }
 
 /* ---------- Level ---------- */
-function nextLevel(){ S.level++; lvlEl.textContent=S.level; modePicker.classList.remove('hide'); }
+function nextLevel(){ S.level++; lvlEl.textContent=S.level; startGame(true); }
 
 /* ---------- UI ---------- */
-$('#btnCfg').onclick = ()=> $('#modal').classList.remove('hide');
-$('.close').onclick  = ()=> $('#modal').classList.add('hide');
+$('#btnCfg').onclick = ()=> $('#modal').classList.add('show');
+$('.close').onclick  = ()=> $('#modal').classList.remove('show');
 $('#optSnake').onchange   = e=> S.settings.snake   = e.target.checked;
-$('#optRepeat').onchange  = e=> S.settings.allowRepeat = e.target.checked;
 $('#optHaptics').onchange = e=> S.settings.haptics = e.target.checked;
 $('#optTones').onchange   = e=> S.settings.tones   = e.target.checked;
 $('#optHC').onchange      = e=>{ S.settings.highContrast=e.target.checked; document.body.classList.toggle('hc',e.target.checked); };
-$('#optMusic').onchange   = e=>{ S.settings.music = e.target.checked; updateBadges(); if(!e.target.checked) Snd.stopLoop(); else Snd.startLoop(); };
-$('#optFX').onchange      = e=>{ S.settings.fx    = e.target.checked; updateBadges(); };
-
 $('#btnHint').onclick = hint;
 
-function updateBadges(){
-  badgeMusic.classList.toggle('hide', !!S.settings.music);
-  badgeFX.classList.toggle('hide', !!S.settings.fx);
+function startLightningRound(){
+  document.body.classList.add('lightning');
+  //startGame();             // or your lightning init function
 }
 
-/* Start button → mode picker */
+function endLightningRound(){
+  document.body.classList.remove('lightning');
+}
+
 $('#btnStart').onclick = async ()=>{
   await Snd.userInit();
   await Snd.playSplash();
+  //startGame();
   modePicker.classList.remove('hide');
 };
 
-/* Mode selection */
 function beginMode(mode){
   S.roundMode = mode;
   modePicker.classList.add('hide');
@@ -809,55 +1057,54 @@ chooseStandard.onclick  = ()=> beginMode('standard');
 chooseLightning.onclick = ()=> beginMode('lightning');
 cancelPicker.onclick    = ()=> modePicker.classList.add('hide');
 
-/* Lightning strike hook */
-function onStormStrike(){
-  if (!S.settings.highContrast){
-    Snd.thunder(0.45, 2500);   // softer frequency: 45% chance, ≥2.5s apart
-    if (navigator.vibrate) navigator.vibrate(60);
-  }
-}
-
-/* ---------- Start / rebuild ---------- */
-function startGame(){
+/* ---------- Start / rebuild ---------- */function startGame(){
   splash.classList.add('hidden');
   gameWrap.classList.remove('hide');
 
+  // backgrounds by mode
   if (S.roundMode === 'lightning'){
-    document.body.classList.add('lightning');
+    startLightningRound();
     document.getElementById('lava').style.display = 'none';
     StormFX.start();
+    // 92% board opacity per your spec
+    document.querySelector('#gameCard .card')?.style.setProperty('opacity','0.92');
+    // optional haptics/sfx on strikes
     document.addEventListener('stormfx:strike', onStormStrike);
   } else {
-    document.body.classList.remove('lightning');
+    endLightningRound();
     document.getElementById('lava').style.display = 'block';
     StormFX.stop();
+    document.querySelector('#gameCard .card')?.style.removeProperty('opacity');
     document.removeEventListener('stormfx:strike', onStormStrike);
   }
 
-  // build
+  // build level
   S.grid.length=0; S.placed.length=0; S.foundIdx.clear?.(); S.bonusWords.clear?.();
   buildEmpty(); for(const w of WORDS) tryPlaceStraight(w); fillRandom();
-  renderWords(); renderGrid(); clearBands(); clearPreview();
+  renderWords(); renderGrid();
+  sizeCells();                               // keep in sync with new gap
+  clearBands(); clearPreview();
   [...gridEl.children].forEach(c=>c.classList.remove('hint'));
 
-  updateBadges();
   Snd.stopAll(); Snd.startLoop();
+}
+
+function onStormStrike(){
+  // respect your “Reduced sensory” switch (you named it highContrast)
+  if (!S.settings.highContrast){
+    Snd.thunder(3.5, 6000);                 // 🔊 play a thunder crack/rumble
+    if (navigator.vibrate) navigator.vibrate(80);
+  }
 }
 
 addEventListener('resize', sizeCells);
 addEventListener('orientationchange', ()=> setTimeout(sizeCells, 80));
 
-/* splash image */
+// on load
 document.getElementById('lava').style.display = 'none';
-document.getElementById('splashImg').src = ASSETS.img.splash;
 
-/* simple praise */
-function praise(msg,type='good'){
-  const n=document.createElement('div');
-  n.className='msg '+type; n.textContent=msg;
-  document.getElementById('msgStack').appendChild(n);
-  setTimeout(()=>n.remove(),1100);
-}
+  
 </script>
 </body>
 </html>
+
