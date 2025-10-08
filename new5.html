@@ -192,6 +192,25 @@ header{position:fixed;left:0;right:0;top:0;display:flex;gap:.6rem;align-items:ce
   box-shadow:0 0 0 1px rgba(0,0,0,.02) inset,
              0 10px 24px rgba(0,0,0,.08);
 }
+
+/* add a “wheel” flavor of .card for round mode */
+.card.wheel{
+  /* circle */
+  border-radius:9999px;
+  aspect-ratio:1/1;
+  width:min(92%, 620px);       /* keeps it within the frame */
+  height:auto;
+  margin:8px auto 16px;        /* centers vertically inside game card */
+  padding:12px;                /* use this as our inset */
+  --pad:12px;                  /* <— JS reads this, overlays use it */
+  border:4px solid rgba(0,0,0,.25);
+  overflow:hidden;
+  position:relative;
+}
+
+/* absolute layers must be anchored to the same pad as the grid */
+.card .layers{ position:absolute; inset:var(--pad,18px); pointer-events:none }
+
 /* overlays for pills */
 #bands, #bandsPreview{
   position:absolute; inset:18px; pointer-events:none;
@@ -478,8 +497,8 @@ header{position:fixed;left:0;right:0;top:0;display:flex;gap:.6rem;align-items:ce
     <!-- BOTTOM -->
     <div id="board">
       <div class="card">
-        <div id="bandsPreview"></div>
-        <div id="bands"></div>
+        <div id="bandsPreview" class="layers"></div>
+        <div id="bands"        class="layers"></div>
         <div id="grid" aria-label="letter grid"></div>
       </div>
     </div>
@@ -589,127 +608,6 @@ const ASSETS = {
 };
 
 /* ---------- Tiny audio helper (unlocked once) ---------- */
-/* ---------- Tiny audio helper (unlocked once) ---------- */
-/*
-const Snd = (() => {
-  const aSplash = new Audio(ASSETS.audio.splash);
-  const aLoop   = new Audio(ASSETS.audio.search);
-  const aWin    = new Audio(ASSETS.audio.victory);
-  const aTh1    = new Audio(ASSETS.audio.thunder1);
-  const aTh2    = new Audio(ASSETS.audio.thunder2);
-
-  aLoop.loop = true; aLoop.volume = .55;
-  [aSplash,aLoop,aWin,aTh1,aTh2].forEach(a => { try{ a.preload='auto'; a.crossOrigin='anonymous'; }catch{} });
-
-  let unlocked=false, ctx=null, duckTimer=null, lastThunder=0;
-
-  async function userInit(){
-    if (unlocked) return;
-    try{
-      ctx = new (window.AudioContext||window.webkitAudioContext)();
-      await ctx.resume();               // iOS unlock (silent)
-      // Just load — avoid play() during unlock to keep Safari happy
-      [aSplash,aLoop,aWin,aTh1,aTh2].forEach(a=>a.load());
-    }catch{}
-    unlocked = true;
-  }
-
-async function startLoop(){
-  if (!S.settings.music) return;
-  try{ aLoop.currentTime=0; await aLoop.play(); }catch{}
-}
-function stopLoop(){ try{ aLoop.pause(); }catch{} }
-function stopAll(){ [aSplash,aLoop,aWin].forEach(a=>{ try{a.pause()}catch{} }); }
-async function playSplash(){
-  // play only if FX are enabled (so “music off” doesn’t block one-shot SFX)
-  if (!S.settings.fx) return;
-  try { aSplash.currentTime = 0; await aSplash.play(); } catch {}
-}
-
-async function victory(){
-  if (!S.settings.fx) return;
-  try{ aWin.currentTime=0; await aWin.play(); }catch{}
-}
-
-function tone(freq=440, dur=0.06){
-  if (!S.settings.fx || !S.settings.tones || !ctx) return;
-  const o=ctx.createOscillator(), g=ctx.createGain();
-  o.connect(g).connect(ctx.destination); o.type='sine'; o.frequency.value=freq;
-  const t=ctx.currentTime; g.gain.setValueAtTime(0.0001,t);
-  g.gain.exponentialRampToValueAtTime(0.2,t+0.01);
-  g.gain.exponentialRampToValueAtTime(0.0001,t+dur);
-  o.start(t); o.stop(t+dur+0.02);
-}
-
-function haptic(ms=8){
-  if (!S.settings.fx || !S.settings.haptics) return;
-  if (navigator.vibrate) navigator.vibrate(ms);
-}
-  // --- loop ducking (fade down/up) ---
-  function duck(to=0.25, ms=260){
-    clearTimeout(duckTimer);
-    const from = aLoop.volume;
-    const steps = 13, dt = ms/steps;
-    let i=0;
-    const tick = ()=>{
-      i++; aLoop.volume = from + (to-from)*(i/steps);
-      if (i<steps) duckTimer=setTimeout(tick, dt);
-    };
-    tick();
-  }
-  function unduck(ms=380){
-    clearTimeout(duckTimer);
-    const from = aLoop.volume, to = .55; // your normal loop volume
-    const steps = 16, dt = ms/steps;
-    let i=0;
-    const tick = ()=>{
-      i++; aLoop.volume = from + (to-from)*(i/steps);
-      if (i<steps) duckTimer=setTimeout(tick, dt);
-    };
-    tick();
-  }
-
-  // --- thunder (rate-limited, random clip) ---
-  async function thunder(prob=0.8, minGapMs=900){
-    const now = performance.now();
-    if (Math.random() > prob) return;           // not every strike
-    if (now - lastThunder < minGapMs) return;   // rate limit
-    lastThunder = now;
-
-    // pick a clip
-    const a = (Math.random()<0.5 ? aTh1 : aTh2);
-    try{
-      duck();
-      a.currentTime = 0;
-      // Don’t overlap if same clip mid-play (optional)
-      try{ a.pause(); }catch{}
-      await a.play();
-      // restore loop volume after clip ends (or max 2s safety)
-      const safetime = 2000;
-      let cleared=false;
-      const done=()=>{ if (!cleared){ cleared=true; unduck(); } };
-      a.onended = done;
-      setTimeout(done, safetime);
-    }catch{
-      unduck();
-    }
-  }
-
-  // tiny tone + haptic (unchanged)
-  function tone(freq=440, dur=0.06){
-    if (!S.settings.tones || !ctx) return;
-    const o=ctx.createOscillator(), g=ctx.createGain();
-    o.connect(g).connect(ctx.destination); o.type='sine'; o.frequency.value=freq;
-    const t=ctx.currentTime; g.gain.setValueAtTime(0.0001,t);
-    g.gain.exponentialRampToValueAtTime(0.2,t+0.01);
-    g.gain.exponentialRampToValueAtTime(0.0001,t+dur);
-    o.start(t); o.stop(t+dur+0.02);
-  }
-  function haptic(ms=8){ if (S.settings.haptics && navigator.vibrate) navigator.vibrate(ms); }
-
-  return { userInit, playSplash, startLoop, stopLoop, stopAll, victory, tone, haptic };
-})();
-*/
 const Snd = (() => {
   const aSplash = new Audio(ASSETS.audio.splash);
   const aLoop   = new Audio(ASSETS.audio.search); aLoop.loop=true; aLoop.volume=.55;
@@ -858,16 +756,30 @@ function setupGridSize(){
   }
 }
 
-// function sizeCells(){
-//   const isNarrow = gridEl.clientWidth <= 420;
-//   const gap = isNarrow ? 8 : 10;     // MUST match CSS media queries
-//   const cols = S.cols;
-//   const w = gridEl.clientWidth;
-//   const cell = Math.min(68, Math.floor((w - gap*(cols-1)) / cols));
-//   gridEl.style.setProperty('--cell', cell + 'px');
-//   // also keep the grid-template-columns in sync if you prefer fixed pixels:
-//   gridEl.style.gridTemplateColumns = `repeat(${cols}, ${cell}px)`;
-// }
+function sizeGridForCurrentCard(){
+  const card = document.querySelector('#board .card');
+  const cols = S.cols, rows = S.rows;
+  const gap  = 4;                              // your tighter gap
+  const pad  = parseFloat(getComputedStyle(card).getPropertyValue('--pad')) || 18;
+
+  // inner box size (square in wheel mode thanks to aspect-ratio)
+  const innerW = card.clientWidth  - pad*2;
+  const innerH = card.clientHeight - pad*2;
+
+  const cellW  = Math.floor((innerW - gap*(cols-1)) / cols);
+  const cellH  = Math.floor((innerH - gap*(rows-1)) / rows);
+  const cell   = Math.min(68, cellW, cellH);
+
+  const grid = document.getElementById('grid');
+  grid.style.gridTemplateColumns = `repeat(${cols}, ${cell}px)`;
+  grid.style.setProperty('--cell', `${cell}px`);
+
+  // keep overlays (bands) in the same inset space
+  const inset = `${pad}px`;
+  const layers = card.querySelectorAll('.layers');
+  layers.forEach(l => l.style.inset = inset);
+}
+
 function sizeCells(){
   const gap = 4;                       // 👈 sync with CSS
   const cols = S.cols;
@@ -1065,6 +977,13 @@ function renderGrid(){
     gridEl.appendChild(d);
   }
   //setupGridSize();
+  sizeGridForCurrentCard();
+
+function hookLayers(){
+  const card = document.querySelector('#board .card');
+  previewEl = card.querySelector('#bandsPreview');
+  bandsEl   = card.querySelector('#bands');
+}
 }
 function renderWords(){
   wordList.innerHTML='';
@@ -1107,6 +1026,9 @@ function drawPillForPath(path,color,preview=false){
 }
 
 /* ---------- Selection / input ---------- */
+addEventListener('resize', sizeGridForCurrentCard);
+addEventListener('orientationchange', ()=> setTimeout(sizeGridForCurrentCard, 80));
+
 function neighbors(id){
   const [r,c]=rcOf(id); const out=[];
   for(const [dr,dc] of [[1,0],[-1,0],[0,1],[0,-1],[1,1],[-1,-1],[1,-1],[-1,1]]){
@@ -1408,7 +1330,7 @@ function startGame(){
   // build level
   S.grid.length=0; S.placed.length=0; S.foundIdx.clear?.(); S.bonusWords.clear?.();
   buildEmpty(); for(const w of WORDS) tryPlaceStraight(w); fillRandom();
-  renderWords(); renderGrid();
+  renderWords(); renderGrid(); hookLayers();
   sizeCells();                               // keep in sync with new gap
   clearBands(); clearPreview();
   [...gridEl.children].forEach(c=>c.classList.remove('hint'));
@@ -1421,6 +1343,7 @@ function startGame(){
 function beginMode(mode){
   // reset both extras
   Storm.stop(); stopTwister(); unmountRound();
+  card.classList.remove('wheel');
   document.body.classList.remove('mode-lightning','mode-round');
 
   if (mode==='lightning'){
@@ -1428,6 +1351,7 @@ function beginMode(mode){
   }else if (mode==='round'){
     document.body.classList.add('mode-round');
     mountRound(); startTwister(15,1400);     // 10–20° every 1–2s feels good
+    card.classList.add('wheel');
   }
   startGame();                               // your existing level build
 }
