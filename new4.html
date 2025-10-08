@@ -571,6 +571,11 @@ async function startLoop(){
 }
 function stopLoop(){ try{ aLoop.pause(); }catch{} }
 function stopAll(){ [aSplash,aLoop,aWin].forEach(a=>{ try{a.pause()}catch{} }); }
+async function playSplash(){
+  // play only if FX are enabled (so “music off” doesn’t block one-shot SFX)
+  if (!S.settings.fx) return;
+  try { aSplash.currentTime = 0; await aSplash.play(); } catch {}
+}
 
 async function victory(){
   if (!S.settings.fx) return;
@@ -1107,7 +1112,10 @@ function endLightningRound(){
 
 $('#btnStart').onclick = async ()=>{
   await Snd.userInit();
-  await Snd.playSplash();
+  await Snd.userInit();
+  Snd.stopLoop?.();          // pause bg loop if it was running
+  await Snd.playSplash();    // one-shot splash SFX
+  startGame();               // builds grid and (if Music ON) starts loop
   //startGame();
   modePicker.classList.remove('hide');
 };
@@ -1121,7 +1129,9 @@ chooseStandard.onclick  = ()=> beginMode('standard');
 chooseLightning.onclick = ()=> beginMode('lightning');
 cancelPicker.onclick    = ()=> modePicker.classList.add('hide');
 
-/* ---------- Start / rebuild ---------- */function startGame(){
+/* ---------- Start / rebuild ---------- */
+  
+function startGame(){
   splash.classList.add('hidden');
   gameWrap.classList.remove('hide');
 
