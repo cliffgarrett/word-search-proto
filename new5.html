@@ -456,12 +456,12 @@ header{position:fixed;left:0;right:0;top:0;display:flex;gap:.6rem;align-items:ce
   <div id="btnCfg" class="chip">⚙️ Settings</div>
   <div id="btnHint" class="chip">💡 Hint</div>
   <!-- add these two lines -->
-  <!-- <div id="badgeMusic" class="chip muted hide">🔇 Music Off</div>
-  <div id="badgeFX" class="chip muted hide">🔕 FX Off</div> -->
+  <div id="badgeMusic" class="chip muted hide">🔇 Music Off</div>
+  <div id="badgeFX" class="chip muted hide">🔕 FX Off</div>
   <!-- end add -->
   <div class="chip">Level <span id="lvl">1</span></div>
-  <!-- <div class="row"><label>Music</label><input type="checkbox" id="optMusic" checked></div>
-  <div class="row"><label>Sound FX</label><input type="checkbox" id="optSfx" checked></div> -->
+  <div class="row hide"><label>Music</label><input type="checkbox" id="optMusic" checked></div>
+  <div class="row hide"><label>Sound FX</label><input type="checkbox" id="optSfx" checked></div> 
 </header>
 
 <!-- Lightning Round background (off by default) -->
@@ -948,7 +948,7 @@ function startTwister(stepDeg=15, everyMs=1500){
   stopTwister(); twisterAngle=0;
   twisterTimer=setInterval(()=>{
     //twisterAngle = (twisterAngle + stepDeg) % 360;
-    twisterAngle = twisterAngle + stepDeg / 60;
+    twisterAngle = (twisterAngle + stepDeg) % 360;
     document.documentElement.style.setProperty('--angle', twisterAngle+'deg');
   }, everyMs);
 }
