@@ -682,7 +682,8 @@ S.minTurnLen = 1;        // require 2 cells straight before turning
 S.roundMode = 'standard'; // or 'lightning'
 /* ---------- DOM ---------- */
 const $ = s => document.querySelector(s);
-const splash = $('#splash'), gridEl = $('#grid'), bandsEl = $('#bands'), previewEl = $('#bandsPreview');
+const splash = $('#splash'), gridEl = $('#grid');
+let bandsEl = $('#bands'), previewEl = $('#bandsPreview');
 const wordList = $('#wordList'), lvlEl = $('#lvl'), gameWrap = $('#gameWrap');
 
 /* ---------- Helpers ---------- */
