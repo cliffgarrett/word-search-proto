@@ -1343,6 +1343,7 @@ function startGame(){
 function beginMode(mode){
   // reset both extras
   Storm.stop(); stopTwister(); unmountRound();
+  const card = document.querySelector('#board .card');
   card.classList.remove('wheel');
   document.body.classList.remove('mode-lightning','mode-round');
 
