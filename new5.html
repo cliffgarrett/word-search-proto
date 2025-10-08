@@ -370,10 +370,10 @@ header{position:fixed;left:0;right:0;top:0;display:flex;gap:.6rem;align-items:ce
 #board{ padding-top:4px; }
 
 /* picker */
-.picker { position:fixed; inset:0; display:grid; place-items:center; z-index:90; }
-.picker.hide { display:none; }
-.picker .pill { margin:.4rem 0; }
-.pill-ghost { background:transparent; border:1px solid rgba(255,255,255,.3); }
+.picker{position:fixed; inset:0; display:grid; place-items:center; z-index:70;
+  background:rgba(0,0,0,.6)}
+.picker .pill{appearance:none;border:0;border-radius:999px;padding:14px 22px;
+  background:#0a7bd1;color:#fff;font-weight:900;margin:8px;}
 
 /* storm canvases sit behind the game card */
 #storm{position:fixed; inset:0; z-index:0; pointer-events:none}
@@ -1437,7 +1437,7 @@ function showPicker(){ document.getElementById('modePicker').classList.remove('h
 function hidePicker(){ document.getElementById('modePicker').classList.add('hide'); }
 
 // buttons
-document.getElementById('chooseNormal').onclick   = ()=>{ hidePicker(); beginMode('classic'); };
+document.getElementById('chooseStandard').onclick   = ()=>{ hidePicker(); beginMode('classic'); };
 document.getElementById('chooseLightning').onclick= ()=>{ hidePicker(); beginMode('lightning'); };
 document.getElementById('chooseRound').onclick    = ()=>{ hidePicker(); beginMode('round'); };
 
